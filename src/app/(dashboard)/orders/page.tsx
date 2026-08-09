@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type SelectedOrderRow = {
   selectedVisibleId: string;
@@ -125,6 +126,7 @@ function buildSelectedOrdersQuery(filters: FilterState, page: number) {
 }
 
 export default function SelectedOrdersPage() {
+  const pathname = usePathname();
   const [orders, setOrders] = useState<SelectedOrderRow[]>([]);
   const [meta, setMeta] = useState<SelectedOrdersMeta | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -134,7 +136,8 @@ export default function SelectedOrdersPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const isSuperadmin = currentUser?.role === "SUPERADMIN";
-  const pageTitle = "Orders";
+  const pageTitle =
+    pathname === "/selected-orders" && isSuperadmin ? "Selected Orders" : "Orders";
 
   const queryString = useMemo(
     () => buildSelectedOrdersQuery(debouncedFilters, page),
@@ -206,7 +209,9 @@ export default function SelectedOrdersPage() {
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
             {isSuperadmin
-              ? "Visible active order records with dynamic SEL numbers."
+              ? pathname === "/selected-orders"
+                ? "Selected-orders-visible records with dynamic SEL numbers."
+                : "Visible active order records with dynamic SEL numbers."
               : "View available active orders."}
           </p>
         </div>

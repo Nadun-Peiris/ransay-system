@@ -64,6 +64,32 @@ enum StockMovementType {
   STOCK_ADJUSTMENT
 }
 
+enum ExpenseCategory {
+  TRANSPORT
+  SALARY
+  RENT
+  ELECTRICITY
+  FUEL
+  PACKAGING
+  OFFICE
+  MAINTENANCE
+  MARKETING
+  OTHER
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  CHEQUE
+  OTHER
+}
+
+enum ExpenseStatus {
+  ACTIVE
+  DELETED
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
 
@@ -288,6 +314,34 @@ model StockMovement {
   @@index([createdAt])
 
   @@map("stock_movements")
+}
+
+model Expense {
+  id String @id @default(cuid())
+
+  title         String
+  category      ExpenseCategory
+  amount        Decimal              @db.Decimal(12, 2)
+  expenseDate   DateTime             @map("expense_date")
+  paymentMethod ExpensePaymentMethod @map("payment_method")
+  notes         String?
+  status        ExpenseStatus        @default(ACTIVE)
+
+  createdByUserId String?        @map("created_by_user_id") @db.Uuid
+  createdByRole   CreatedByRole? @map("created_by_role")
+
+  deletedAt       DateTime? @map("deleted_at")
+  deletedByUserId String?   @map("deleted_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([paymentMethod])
+  @@index([expenseDate])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("expenses")
 }
 
 model IdSequence {

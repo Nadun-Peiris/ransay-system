@@ -8,6 +8,7 @@ import {
   Boxes,
   ClipboardList,
   FileInput,
+  LayoutDashboard,
   LineChart,
   PackageSearch,
   PlusCircle,
@@ -27,31 +28,23 @@ type CurrentUser = {
 };
 
 const baseNavItems = [
-  { label: "Orders", href: "/orders", icon: ShoppingCart },
-  { label: "All Orders", href: "/all-orders", icon: Star },
-  { label: "Create Order", href: "/create-order", icon: PlusCircle },
-  { label: "Stocks", href: "/stocks", icon: Boxes },
-  { label: "Customers", href: "/customers/search", icon: Users },
-  { label: "Products", href: "/products/search", icon: PackageSearch },
-  { label: "Total Sales", href: "/analytics/total-sales", icon: TrendingUp },
-  { label: "Customer Sales", href: "/analytics/customer-sales", icon: BarChart3 },
-  { label: "Product Sales", href: "/analytics/product-sales", icon: LineChart },
-  { label: "Expenses", href: "/finance/expenses", icon: ReceiptText },
-  { label: "Investments", href: "/finance/investments", icon: WalletCards },
-  { label: "Profit & Loss", href: "/finance/profit-loss", icon: ClipboardList },
-  { label: "Import", href: "/import", icon: FileInput },
+  { label: "Dashboard / Analytics", href: "/analytics", icon: LayoutDashboard },
 ];
 
 function isActivePath(pathname: string, href: string) {
+  if (href === "/analytics") {
+    return pathname === "/analytics";
+  }
+
   if (href === "/orders") {
     return pathname === "/orders" || pathname.startsWith("/orders/");
   }
 
-  if (href === "/all-orders") {
-    return pathname === "/all-orders";
+  if (href === "/selected-orders") {
+    return pathname === "/selected-orders";
   }
 
-  return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function DashboardSidebar() {
@@ -84,9 +77,79 @@ export function DashboardSidebar() {
   }, []);
 
   const isSuperadmin = currentUser?.role === "SUPERADMIN";
-  const navItems = baseNavItems
-    .filter((item) => isSuperadmin || item.label !== "All Orders");
-  const homeHref = "/orders";
+  const navSections = [
+    {
+      label: "Main",
+      items: baseNavItems,
+    },
+    {
+      label: "Orders",
+      items: [
+        { label: "Create Order", href: "/create-order", icon: PlusCircle },
+        {
+          label: "Orders",
+          href: isSuperadmin ? "/orders" : "/selected-orders",
+          icon: ShoppingCart,
+        },
+        ...(isSuperadmin
+          ? [
+              {
+                label: "Selected Orders",
+                href: "/selected-orders",
+                icon: Star,
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: "Management",
+      items: [
+        { label: "Customers", href: "/customers/search", icon: Users },
+        { label: "Products", href: "/products/search", icon: PackageSearch },
+        { label: "Stocks", href: "/stocks", icon: Boxes },
+        { label: "Import", href: "/import", icon: FileInput },
+      ],
+    },
+    {
+      label: "Analytics",
+      items: [
+        ...(isSuperadmin
+          ? [
+              {
+                label: "Total Sales",
+                href: "/analytics/total-sales",
+                icon: TrendingUp,
+              },
+            ]
+          : []),
+        { label: "Sales", href: "/analytics/sales", icon: BarChart3 },
+        {
+          label: "Product Sales",
+          href: "/analytics/product-sales",
+          icon: LineChart,
+        },
+        {
+          label: "Customer Sales",
+          href: "/analytics/customer-sales",
+          icon: BarChart3,
+        },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        { label: "Expenses", href: "/finance/expenses", icon: ReceiptText },
+        {
+          label: "Profit & Loss",
+          href: "/finance/profit-loss",
+          icon: ClipboardList,
+        },
+        { label: "Investments", href: "/finance/investments", icon: WalletCards },
+      ],
+    },
+  ];
+  const homeHref = "/analytics";
 
   return (
     <aside className="hidden h-screen w-[260px] shrink-0 border-r border-stone-200 bg-white lg:fixed lg:left-0 lg:top-0 lg:flex lg:flex-col">
@@ -107,29 +170,36 @@ export function DashboardSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              isActivePath(pathname, item.href) ||
-              (item.label === "Orders" && pathname.startsWith("/orders/"));
+        <div className="space-y-5">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p className="mb-2 px-3 text-[11px] font-black uppercase tracking-wide text-stone-400">
+                {section.label}
+              </p>
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = isActivePath(pathname, item.href);
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                  isActive
-                    ? "bg-[#FFBF01] text-black shadow-sm"
-                    : "text-stone-600 hover:bg-stone-100 hover:text-black"
-                }`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={`${section.label}-${item.href}-${item.label}`}
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                        isActive
+                          ? "bg-[#FFBF01] text-black shadow-sm"
+                          : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                      }`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </nav>
     </aside>

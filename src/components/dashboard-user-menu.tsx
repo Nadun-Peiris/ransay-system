@@ -61,12 +61,17 @@ export function DashboardUserMenu() {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="hidden text-right sm:block">
-        <p className="text-sm font-bold text-black">
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="min-w-0 text-right">
+        <p className="truncate text-sm font-bold text-black">
           {isLoading ? "Loading..." : user?.name ?? "User"}
         </p>
-        <div className="mt-1 flex justify-end">
+        <div className="mt-1 flex flex-wrap justify-end gap-1">
+          {user?.email && (
+            <span className="hidden max-w-[180px] truncate text-xs font-medium text-stone-500 sm:inline">
+              {user.email}
+            </span>
+          )}
           <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-stone-700">
             {user?.role ?? "ADMIN"}
           </span>

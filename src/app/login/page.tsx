@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -9,6 +9,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function redirectIfLoggedIn() {
+      try {
+        const response = await fetch("/api/auth/me");
+        const result = await response.json();
+
+        if (isMounted && response.ok && result.success) {
+          router.replace("/analytics");
+        }
+      } catch {
+        // Keep the login form visible for unauthenticated users.
+      }
+    }
+
+    void redirectIfLoggedIn();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,7 +56,7 @@ export default function LoginPage() {
         throw new Error(result.message || "Login failed.");
       }
 
-      router.replace("/orders");
+      router.replace("/analytics");
       router.refresh();
     } catch (error) {
       setErrorMessage(

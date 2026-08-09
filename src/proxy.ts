@@ -6,6 +6,7 @@ type CurrentUserRole = "ADMIN" | "SUPERADMIN";
 
 const protectedRoutes = [
   "/",
+  "/analytics",
   "/orders",
   "/all-orders",
   "/create-order",
@@ -13,7 +14,6 @@ const protectedRoutes = [
   "/stocks",
   "/customers",
   "/products",
-  "/analytics",
   "/finance",
   "/import",
 ];
@@ -78,7 +78,7 @@ export async function proxy(request: NextRequest) {
     const role = await getSessionRole(request);
 
     if (role) {
-      return NextResponse.redirect(new URL("/orders", request.url));
+      return NextResponse.redirect(new URL("/analytics", request.url));
     }
 
     return NextResponse.next();
@@ -94,12 +94,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (pathname === "/selected-orders") {
-    return NextResponse.redirect(new URL("/orders", request.url));
+  if (pathname === "/orders" && role !== "SUPERADMIN") {
+    return NextResponse.redirect(new URL("/selected-orders", request.url));
   }
 
   if (pathname === "/all-orders" && role !== "SUPERADMIN") {
-    return NextResponse.redirect(new URL("/orders", request.url));
+    return NextResponse.redirect(new URL("/selected-orders", request.url));
+  }
+
+  if (pathname === "/analytics/total-sales" && role !== "SUPERADMIN") {
+    return NextResponse.redirect(new URL("/analytics/sales", request.url));
   }
 
   return NextResponse.next();
