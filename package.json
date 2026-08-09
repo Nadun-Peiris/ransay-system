@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "generate": "prisma generate",
+    "build": "prisma generate && next build",
     "start": "next start",
     "seed:auth": "tsx scripts/seed-auth-users.ts",
     "backfill:inventory-states": "tsx scripts/backfill-inventory-states.ts",
