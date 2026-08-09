@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderType {
+  VAT
+  NON_VAT
+}
+
+enum CreatedByRole {
+  ADMIN
+  SUPERADMIN
+}
+
+enum OrderStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DELETED
+}
+
+enum PaymentType {
+  PAID_NOW
+  CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  DUE
+  OVERDUE
+  PAID
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  FULFILLED
+}
+
+enum DeliveryStatus {
+  NOT_DISPATCHED
+  DISPATCHED
+  DELIVERED
+}
+
+enum IdSequenceKey {
+  ORDER
+  VAT_ORDER
+  NON_VAT_ORDER
+}
+
+enum StockMovementType {
+  ORDER_SALE
+  ORDER_COMMIT
+  ORDER_UNCOMMIT
+  ORDER_DELIVERY_DEDUCTION
+  ORDER_DELETE_REVERSAL
+  STOCK_IN
+  STOCK_OUT
+  STOCK_ADJUSTMENT
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  name         String
+  email        String? @unique
+  passwordHash String? @map("password_hash")
+
+  role     CreatedByRole @default(ADMIN)
+  isActive Boolean       @default(true) @map("is_active")
+
+  createdOrders Order[] @relation("OrdersCreatedByUser")
+  deletedOrders Order[] @relation("OrdersDeletedByUser")
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+model Customer {
+  id String @id @default(uuid()) @db.Uuid
+
+  customerCode String? @unique @map("customer_code")
+  customerName String @map("customer_name")
+  contactPerson String? @map("contact_person")
+  phone        String?
+  email        String?
+  address      String?
+  position     String?
+
+  customerType OrderType @map("customer_type")
+  vatNumber    String?   @map("vat_number")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  addresses CustomerAddress[]
+  orders    Order[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([customerCode])
+  @@index([customerName])
+  @@index([customerType])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id String @id @default(uuid()) @db.Uuid
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  label     String?
+  address   String
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+
+  productName String  @map("product_name")
+  sku         String? @unique
+
+  kgPerBag Decimal @map("kg_per_bag") @db.Decimal(10, 2)
+
+  stockBags Decimal @default(0) @map("stock_bags") @db.Decimal(12, 2)
+  stockKg   Decimal @default(0) @map("stock_kg") @db.Decimal(12, 2)
+
+  committedBags Decimal @default(0) @map("committed_bags") @db.Decimal(12, 2)
+  committedKg   Decimal @default(0) @map("committed_kg") @db.Decimal(12, 2)
+
+  unavailableBags Decimal @default(0) @map("unavailable_bags") @db.Decimal(12, 2)
+  unavailableKg   Decimal @default(0) @map("unavailable_kg") @db.Decimal(12, 2)
+
+  defaultSellingPricePerKg Decimal @default(0) @map("default_selling_price_per_kg") @db.Decimal(12, 2)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([productName])
+  @@index([sku])
+  @@index([committedBags])
+  @@index([unavailableBags])
+  @@map("products")
+}
+
+model Order {
+  id String @id @default(uuid()) @db.Uuid
+
+  orderId       String  @unique @map("order_id")
+  vatOrderId    String? @unique @map("vat_order_id")
+  nonVatOrderId String? @unique @map("non_vat_order_id")
+
+  createdByRole   CreatedByRole @map("created_by_role")
+  createdByUserId String        @map("created_by_user_id") @db.Uuid
+  createdByUser   User          @relation("OrdersCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  customerName              String    @map("customer_name")
+  customerContactPerson     String?   @map("customer_contact_person")
+  customerPhone             String?   @map("customer_phone")
+  customerAddress           String?   @map("customer_address")
+  customerTypeSnapshot      OrderType @map("customer_type_snapshot")
+  customerVatNumberSnapshot String?   @map("customer_vat_number_snapshot")
+
+  orderType OrderType @map("order_type")
+
+  isSelected Boolean @default(false) @map("is_selected")
+
+  subtotal       Decimal @default(0) @map("subtotal") @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  deliveryAmount Decimal @default(0) @map("delivery_amount") @db.Decimal(12, 2)
+  vatRate        Decimal @default(0) @map("vat_rate") @db.Decimal(5, 2)
+  vatAmount      Decimal @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  totalAmount    Decimal @default(0) @map("total_amount") @db.Decimal(12, 2)
+
+  orderStatus       OrderStatus       @default(ACTIVE) @map("order_status")
+  paymentType       PaymentType       @map("payment_type")
+  paymentStatus     PaymentStatus     @default(PENDING) @map("payment_status")
+  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED) @map("fulfillment_status")
+  deliveryStatus    DeliveryStatus    @default(NOT_DISPATCHED) @map("delivery_status")
+
+  paymentDueDate DateTime? @map("payment_due_date") @db.Date
+  paidAt         DateTime? @map("paid_at") @db.Timestamptz(6)
+
+  notes String?
+
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedByUserId String?   @map("deleted_by_user_id") @db.Uuid
+  deletedByUser   User?     @relation("OrdersDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  deleteReason String? @map("delete_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items          OrderItem[]
+  stockMovements StockMovement[]
+
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@index([fulfillmentStatus])
+  @@index([deliveryStatus])
+  @@index([customerId])
+  @@index([createdByUserId])
+  @@index([createdAt])
+  @@index([deletedAt])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  orderId String @map("order_id") @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  productName String  @map("product_name")
+  sku         String?
+
+  kgPerBag Decimal @map("kg_per_bag") @db.Decimal(10, 2)
+
+  quantityBags Decimal @map("quantity_bags") @db.Decimal(12, 2)
+  quantityKg   Decimal @map("quantity_kg") @db.Decimal(12, 2)
+
+  pricePerKg Decimal @map("price_per_kg") @db.Decimal(12, 2)
+
+  lineTotal Decimal @default(0) @map("line_total") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@index([productId])
+
+  @@map("order_items")
+}
+
+model StockMovement {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  orderId String? @map("order_id") @db.Uuid
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  movementType StockMovementType @map("movement_type")
+
+  quantityBags Decimal @map("quantity_bags") @db.Decimal(12, 2)
+  quantityKg   Decimal @map("quantity_kg") @db.Decimal(12, 2)
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  reason String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([productId])
+  @@index([orderId])
+  @@index([movementType])
+  @@index([createdByUserId])
+  @@index([createdAt])
+
+  @@map("stock_movements")
+}
+
+model IdSequence {
+  id String @id @default(uuid()) @db.Uuid
+
+  key          IdSequenceKey @unique
+  currentValue Int          @default(0) @map("current_value")
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("id_sequences")
+}
