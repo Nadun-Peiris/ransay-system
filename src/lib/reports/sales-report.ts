@@ -12,6 +12,7 @@ type SalesReportOrder = {
   fulfillmentStatus: "UNFULFILLED" | "FULFILLED";
   deliveryStatus: "NOT_DISPATCHED" | "DISPATCHED" | "DELIVERED";
   orderStatus: "ACTIVE" | "COMPLETED" | "CANCELLED" | "DELETED";
+  orderDate: Date;
   createdAt: Date;
 };
 
@@ -111,7 +112,7 @@ export function buildSalesReport(
   >();
 
   for (const order of orders) {
-    const date = getDateKey(order.createdAt);
+    const date = getDateKey(order.orderDate);
     const totalAmount = decimalToNumber(order.totalAmount);
     const current = dailySalesMap.get(date) ?? {
       date,
@@ -138,7 +139,7 @@ export function buildSalesReport(
   );
 
   const recentOrders = [...orders]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime())
     .slice(0, 10)
     .map((order) => ({
       id: order.id,
@@ -152,6 +153,7 @@ export function buildSalesReport(
       fulfillmentStatus: order.fulfillmentStatus,
       deliveryStatus: order.deliveryStatus,
       orderStatus: order.orderStatus,
+      orderDate: order.orderDate,
       createdAt: order.createdAt,
     }));
 

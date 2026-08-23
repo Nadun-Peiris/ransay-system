@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { SkeletonTable } from "@/components/skeleton";
 
 type StockProduct = {
   id: string;
@@ -236,11 +237,10 @@ export default function StocksPage() {
             {meta?.totalCount ?? 0} total product
             {(meta?.totalCount ?? 0) === 1 ? "" : "s"}
           </p>
-          {isLoading && <p className="text-sm text-neutral-500">Loading...</p>}
         </div>
 
         {isLoading && products.length === 0 ? (
-          <div className="p-6 text-sm text-neutral-500">Loading stocks...</div>
+          <SkeletonTable columns={6} rows={8} />
         ) : products.length === 0 ? (
           <div className="p-6 text-sm text-neutral-500">No products found.</div>
         ) : (

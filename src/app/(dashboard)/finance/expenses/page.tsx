@@ -6,6 +6,8 @@ import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { RankingBarChart } from "@/components/charts/ranking-bar-chart";
 import { SalesLineChart } from "@/components/charts/sales-line-chart";
+import { SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type ExpenseCategory =
   | "TRANSPORT"
@@ -304,7 +306,10 @@ export default function ExpensesPage() {
       setReport(reportResult.data);
     } catch (error) {
       console.error("Failed to load expenses:", error);
-      alert(error instanceof Error ? error.message : "Failed to load expenses.");
+      showToast(
+        error instanceof Error ? error.message : "Failed to load expenses.",
+        "error"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -343,9 +348,16 @@ export default function ExpensesPage() {
 
       closeForm();
       await fetchExpenses();
+      showToast(
+        editingExpense ? "Expense updated successfully." : "Expense saved successfully.",
+        "success"
+      );
     } catch (error) {
       console.error("Failed to save expense:", error);
-      alert(error instanceof Error ? error.message : "Failed to save expense.");
+      showToast(
+        error instanceof Error ? error.message : "Failed to save expense.",
+        "error"
+      );
     } finally {
       setIsSaving(false);
     }
@@ -367,10 +379,12 @@ export default function ExpensesPage() {
       }
 
       await fetchExpenses();
+      showToast("Expense deleted successfully.", "success");
     } catch (error) {
       console.error("Failed to delete expense:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to delete expense."
+      showToast(
+        error instanceof Error ? error.message : "Failed to delete expense.",
+        "error"
       );
     }
   }
@@ -971,6 +985,10 @@ function Badge({
 }
 
 function EmptyState({ label }: { label: string }) {
+  if (label.startsWith("Loading")) {
+    return <SkeletonTable columns={5} rows={5} />;
+  }
+
   return (
     <div className="p-8 text-center text-sm font-medium text-stone-500">
       {label}

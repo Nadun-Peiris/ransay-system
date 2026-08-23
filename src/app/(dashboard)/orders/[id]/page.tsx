@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { BackButton } from "@/components/back-button";
+import { SkeletonBlock, SkeletonCardGrid, SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type OrderAction =
   | "MARK_PAID"
@@ -56,6 +59,7 @@ type SingleOrder = {
   deletedAt: string | null;
   deleteReason: string | null;
 
+  orderDate: string;
   createdAt: string;
   updatedAt: string;
 
@@ -209,7 +213,10 @@ export default function SingleOrderPage() {
       });
     } catch (error) {
       console.error("Failed to load order:", error);
-      alert(error instanceof Error ? error.message : "Failed to load order.");
+      showToast(
+        error instanceof Error ? error.message : "Failed to load order.",
+        "error"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -264,8 +271,9 @@ export default function SingleOrderPage() {
       await loadOrder();
     } catch (error) {
       console.error("Order action failed:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to update order."
+      showToast(
+        error instanceof Error ? error.message : "Failed to update order.",
+        "error"
       );
     } finally {
       setIsUpdating(false);
@@ -306,12 +314,13 @@ export default function SingleOrderPage() {
         throw new Error(result.message || "Failed to delete order.");
       }
 
-      alert("Order deleted successfully.");
+      showToast("Order deleted successfully.", "success");
       router.push(ordersHref);
     } catch (error) {
       console.error("Order delete failed:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to delete order."
+      showToast(
+        error instanceof Error ? error.message : "Failed to delete order.",
+        "error"
       );
     } finally {
       setIsUpdating(false);
@@ -321,9 +330,14 @@ export default function SingleOrderPage() {
   if (isLoading) {
     return (
       <main className="p-6 text-black font-sans">
-        <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm font-medium text-stone-500 shadow-sm animate-pulse">
-          Loading order details...
+        <div className="mb-8">
+          <SkeletonBlock className="h-10 w-44" />
+          <SkeletonBlock className="mt-3 h-4 w-72" />
         </div>
+        <SkeletonCardGrid count={5} />
+        <section className="mt-6 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+          <SkeletonTable columns={6} rows={6} />
+        </section>
       </main>
     );
   }
@@ -335,12 +349,7 @@ export default function SingleOrderPage() {
           <p className="text-base font-medium text-stone-500">
             You do not have access to this order.
           </p>
-          <Link
-            href={ordersHref}
-            className="mt-6 inline-flex rounded-xl bg-[#FFBF01] px-6 py-3 text-sm font-bold text-black transition-colors hover:bg-[#e5ab00]"
-          >
-            Back to orders
-          </Link>
+          <BackButton href={ordersHref} label="Back to orders" className="mt-6" />
         </div>
       </main>
     );
@@ -351,12 +360,7 @@ export default function SingleOrderPage() {
       <main className="p-6 text-black font-sans">
         <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm">
           <p className="text-base font-medium text-stone-500">Order not found.</p>
-          <Link
-            href={ordersHref}
-            className="mt-6 inline-flex rounded-xl bg-[#FFBF01] px-6 py-3 text-sm font-bold text-black transition-colors hover:bg-[#e5ab00]"
-          >
-            Back to orders
-          </Link>
+          <BackButton href={ordersHref} label="Back to orders" className="mt-6" />
         </div>
       </main>
     );
@@ -386,12 +390,7 @@ export default function SingleOrderPage() {
     <main className="p-6 text-black font-sans">
       <div className="mb-8">
         <div>
-          <Link
-            href={ordersHref}
-            className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-stone-500 transition-colors hover:text-black"
-          >
-            ← Back to orders
-          </Link>
+          <BackButton href={ordersHref} label="Back to orders" className="mb-4" />
 
           <div className="flex flex-wrap items-center gap-4">
             <h1 className="text-4xl font-bold tracking-tight text-black">
@@ -406,8 +405,8 @@ export default function SingleOrderPage() {
           </div>
 
           <p className="mt-2 text-sm font-medium text-stone-500">
-            {order.vatOrderId ?? order.nonVatOrderId} <span className="mx-2 text-stone-300">•</span> Created on{" "}
-            <span className="text-stone-700">{formatDate(order.createdAt)}</span>
+            {order.vatOrderId ?? order.nonVatOrderId} <span className="mx-2 text-stone-300">•</span> Order Date{" "}
+            <span className="text-stone-700">{formatDate(order.orderDate)}</span>
           </p>
         </div>
       </div>
@@ -741,7 +740,12 @@ export default function SingleOrderPage() {
               </div>
 
               <div>
-                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Created Date</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Order Date</p>
+                <p className="mt-1 font-bold text-black">{formatDate(order.orderDate)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Created At</p>
                 <p className="mt-1 font-bold text-black">{formatDate(order.createdAt)}</p>
               </div>
 

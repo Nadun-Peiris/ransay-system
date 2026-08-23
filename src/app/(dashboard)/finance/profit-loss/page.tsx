@@ -5,6 +5,8 @@ import Link from "next/link";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { SalesLineChart } from "@/components/charts/sales-line-chart";
+import { SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type UserRole = "ADMIN" | "SUPERADMIN";
 type ReportMode = "TOTAL_SALES" | "SELECTED_ORDERS_SALES";
@@ -84,6 +86,7 @@ type ProfitLossReport = {
     orderType: OrderType;
     totalAmount: number;
     paymentStatus: PaymentStatus;
+    orderDate: string;
     createdAt: string;
   }[];
   recentExpenses: {
@@ -245,10 +248,11 @@ export default function ProfitLossPage() {
       setReport(result.data as ProfitLossReport);
     } catch (error) {
       console.error("Failed to load profit and loss:", error);
-      alert(
+      showToast(
         error instanceof Error
           ? error.message
-          : "Failed to load profit and loss."
+          : "Failed to load profit and loss.",
+        "error"
       );
     } finally {
       setIsLoading(false);
@@ -705,7 +709,7 @@ function RecentSalesTable({
                 <th className="p-4 font-medium">Type</th>
                 <th className="p-4 font-medium">Total</th>
                 <th className="p-4 font-medium">Payment</th>
-                <th className="p-4 font-medium">Created</th>
+                <th className="p-4 font-medium">Order Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -733,7 +737,7 @@ function RecentSalesTable({
                     <Badge label={order.paymentStatus} color="gray" />
                   </td>
                   <td className="p-4 font-medium text-stone-500">
-                    {new Date(order.createdAt).toLocaleDateString("en-LK", {
+                    {new Date(order.orderDate).toLocaleDateString("en-LK", {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
@@ -824,6 +828,10 @@ function Badge({
 }
 
 function EmptyState({ label }: { label: string }) {
+  if (label.startsWith("Loading")) {
+    return <SkeletonTable columns={5} rows={5} />;
+  }
+
   return (
     <div className="p-8 text-center text-sm font-medium text-stone-500">
       {label}

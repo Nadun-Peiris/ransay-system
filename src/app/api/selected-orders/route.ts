@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
         ...(dateFrom || dateTo
           ? [
               {
-                createdAt: {
+                orderDate: {
                   ...(dateFrom ? { gte: dateFrom } : {}),
                   ...(dateTo ? { lte: dateTo } : {}),
                 },
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
         where,
         orderBy: [
           {
-            createdAt: "desc",
+            orderDate: "desc",
           },
           {
             id: "desc",
@@ -215,6 +215,7 @@ export async function GET(request: NextRequest) {
       fulfillmentStatus: order.fulfillmentStatus,
       deliveryStatus: order.deliveryStatus,
 
+      orderDate: order.orderDate,
       createdAt: order.createdAt,
 
       items: order.items.map((item) => ({

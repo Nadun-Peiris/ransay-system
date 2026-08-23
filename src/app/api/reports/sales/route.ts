@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         ...(dateFrom || dateTo
           ? [
               {
-                createdAt: {
+                orderDate: {
                   ...(dateFrom ? { gte: dateFrom } : {}),
                   ...(dateTo ? { lte: dateTo } : {}),
                 },
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,
@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
         fulfillmentStatus: true,
         deliveryStatus: true,
         orderStatus: true,
+        orderDate: true,
         createdAt: true,
       },
     });

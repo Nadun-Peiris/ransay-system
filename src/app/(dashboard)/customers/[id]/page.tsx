@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { BackButton } from "@/components/back-button";
+import { SkeletonBlock, SkeletonCardGrid, SkeletonTable } from "@/components/skeleton";
 
 type CustomerType = "VAT" | "NON_VAT";
 
@@ -195,9 +197,14 @@ export default function CustomerDetailPage() {
   if (isLoading) {
     return (
       <main className="p-6">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
-          Loading customer...
+        <div className="mb-8">
+          <SkeletonBlock className="h-8 w-56" />
+          <SkeletonBlock className="mt-3 h-4 w-72" />
         </div>
+        <SkeletonCardGrid count={3} />
+        <section className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+          <SkeletonTable columns={5} rows={5} />
+        </section>
       </main>
     );
   }
@@ -207,12 +214,7 @@ export default function CustomerDetailPage() {
       <main className="p-6">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-neutral-500">Customer not found.</p>
-          <Link
-            href="/customers/search"
-            className="mt-4 inline-flex rounded-xl bg-[#FFBF01] px-4 py-2 text-sm font-bold text-black"
-          >
-            Back to Customers
-          </Link>
+          <BackButton href="/customers/search" label="Back to customers" className="mt-4" />
         </div>
       </main>
     );
@@ -221,12 +223,7 @@ export default function CustomerDetailPage() {
   return (
     <main className="p-6 text-black">
       <div className="mb-6">
-        <Link
-          href="/customers/search"
-          className="mb-3 inline-flex text-sm font-semibold text-neutral-500 hover:text-neutral-900"
-        >
-          Back to Customers
-        </Link>
+        <BackButton href="/customers/search" label="Back to customers" className="mb-3" />
         <h1 className="text-3xl font-semibold text-neutral-900">
           {customer.customerName}
         </h1>

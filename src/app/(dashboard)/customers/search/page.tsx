@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { SkeletonTable } from "@/components/skeleton";
 
 type CustomerType = "VAT" | "NON_VAT";
 type CustomerStatus = "active" | "inactive" | "all";
@@ -338,13 +339,10 @@ export default function CustomersPage() {
             {meta?.totalCount ?? 0} total customer
             {(meta?.totalCount ?? 0) === 1 ? "" : "s"}
           </p>
-          {isLoading && <p className="text-sm text-neutral-500">Loading...</p>}
         </div>
 
         {isLoading && customers.length === 0 ? (
-          <div className="p-6 text-sm text-neutral-500">
-            Loading customers...
-          </div>
+          <SkeletonTable columns={6} rows={8} />
         ) : customers.length === 0 ? (
           <div className="p-6 text-sm text-neutral-500">No customers found.</div>
         ) : (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { SalesLineChart } from "@/components/charts/sales-line-chart";
+import { SkeletonBlock } from "@/components/skeleton";
 import { formatCurrency } from "@/lib/formatters";
 
 type CurrentUser = {
@@ -347,9 +348,13 @@ export default function AnalyticsOverviewPage() {
       <section>
         <div className="mb-4 flex flex-col gap-1">
           <h2 className="text-lg font-bold text-black">Quick Reports</h2>
-          <p className="text-sm font-medium text-stone-500">
-            {isLoading ? "Loading report values..." : "Open report details."}
-          </p>
+          {isLoading ? (
+            <SkeletonBlock className="h-4 w-36" />
+          ) : (
+            <p className="text-sm font-medium text-stone-500">
+              Open report details.
+            </p>
+          )}
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((card) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 
 export default function DashboardError({
   reset,
@@ -25,12 +25,7 @@ export default function DashboardError({
           >
             Try again
           </button>
-          <Link
-            href="/analytics"
-            className="rounded-xl border border-stone-300 bg-white px-5 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50"
-          >
-            Back to Analytics
-          </Link>
+          <BackButton href="/analytics" label="Back to analytics" />
         </div>
       </section>
     </main>

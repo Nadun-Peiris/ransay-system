@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { SalesLineChart } from "@/components/charts/sales-line-chart";
+import { SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type CurrentUser = {
   id: string;
@@ -55,6 +57,7 @@ type SalesReportData = {
     fulfillmentStatus: "UNFULFILLED" | "FULFILLED";
     deliveryStatus: "NOT_DISPATCHED" | "DISPATCHED" | "DELIVERED";
     orderStatus: "ACTIVE" | "COMPLETED" | "CANCELLED" | "DELETED";
+    orderDate: string;
     createdAt: string;
   }[];
 };
@@ -212,8 +215,9 @@ export function SalesReportPage({
       setReport(result.data as SalesReportData);
     } catch (error) {
       console.error("Failed to load sales report:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to load sales report."
+      showToast(
+        error instanceof Error ? error.message : "Failed to load sales report.",
+        "error"
       );
     } finally {
       setIsLoading(false);
@@ -539,7 +543,7 @@ function RecentOrdersTable({
                 <th className="p-4 font-medium">Fulfillment</th>
                 <th className="p-4 font-medium">Delivery</th>
                 <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium">Created</th>
+                <th className="p-4 font-medium">Order Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -582,7 +586,7 @@ function RecentOrdersTable({
                     <Badge label={order.orderStatus} color={getOrderBadgeColor(order.orderStatus)} />
                   </td>
                   <td className="p-4 font-medium text-stone-500">
-                    {new Date(order.createdAt).toLocaleDateString("en-LK", {
+                    {new Date(order.orderDate).toLocaleDateString("en-LK", {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
@@ -617,6 +621,10 @@ function Badge({
 }
 
 function EmptyState({ label }: { label: string }) {
+  if (label.startsWith("Loading")) {
+    return <SkeletonTable columns={5} rows={5} />;
+  }
+
   return <div className="p-8 text-center text-sm font-medium text-stone-500">{label}</div>;
 }
 

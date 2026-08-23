@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { SkeletonTable } from "@/components/skeleton";
 
 type ProductRow = {
   id: string;
@@ -278,13 +279,10 @@ export default function ProductsPage() {
             {meta?.totalCount ?? 0} total product
             {(meta?.totalCount ?? 0) === 1 ? "" : "s"}
           </p>
-          {isLoading && <p className="text-sm text-neutral-500">Loading...</p>}
         </div>
 
         {isLoading && products.length === 0 ? (
-          <div className="p-6 text-sm text-neutral-500">
-            Loading products...
-          </div>
+          <SkeletonTable columns={6} rows={8} />
         ) : products.length === 0 ? (
           <div className="p-6 text-sm text-neutral-500">No products found.</div>
         ) : (

@@ -14,6 +14,7 @@ type CreateOrderItemInput = {
 type CreateOrderInput = {
   customerId: string;
   customerAddressId?: string | null;
+  orderDate?: string | null;
   items: CreateOrderItemInput[];
   discountAmount?: number;
   deliveryAmount?: number;
@@ -76,6 +77,20 @@ function getDateToParam(searchParams: URLSearchParams) {
 
   dateTo.setHours(23, 59, 59, 999);
   return dateTo;
+}
+
+function parseOptionalOrderDate(value: string | null | undefined) {
+  if (!value) {
+    return new Date();
+  }
+
+  const orderDate = new Date(value);
+
+  if (Number.isNaN(orderDate.getTime())) {
+    return null;
+  }
+
+  return orderDate;
 }
 
 function getCreditPaymentStatus(dueDate: Date) {
@@ -206,7 +221,7 @@ export async function GET(request: NextRequest) {
         : {}),
       ...(dateFrom || dateTo
         ? {
-            createdAt: {
+            orderDate: {
               ...(dateFrom ? { gte: dateFrom } : {}),
               ...(dateTo ? { lte: dateTo } : {}),
             },
@@ -218,7 +233,7 @@ export async function GET(request: NextRequest) {
       where,
       orderBy: [
         {
-          createdAt: "desc",
+          orderDate: "desc",
         },
         {
           id: "desc",
@@ -296,6 +311,7 @@ export async function GET(request: NextRequest) {
         deletedAt: order.deletedAt,
         deleteReason: order.deleteReason,
 
+        orderDate: order.orderDate,
         createdAt: order.createdAt,
 
         items: order.items.map((item) => ({
@@ -361,6 +377,15 @@ export async function POST(request: NextRequest) {
     if (body.paymentType === "CREDIT" && !body.paymentDueDate) {
       return NextResponse.json(
         { success: false, message: "Payment due date is required for credit orders." },
+        { status: 400 }
+      );
+    }
+
+    const orderDate = parseOptionalOrderDate(body.orderDate);
+
+    if (!orderDate) {
+      return NextResponse.json(
+        { success: false, message: "Order date is invalid." },
         { status: 400 }
       );
     }
@@ -529,6 +554,7 @@ export async function POST(request: NextRequest) {
           orderType,
 
           isSelected: false,
+          orderDate,
 
           subtotal,
           discountAmount,

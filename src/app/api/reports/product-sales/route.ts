@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
         ...(dateFrom || dateTo
           ? [
               {
-                createdAt: {
+                orderDate: {
                   ...(dateFrom ? { gte: dateFrom } : {}),
                   ...(dateTo ? { lte: dateTo } : {}),
                 },
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,
@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
         customerName: true,
         orderType: true,
         paymentStatus: true,
+        orderDate: true,
         createdAt: true,
         items: {
           where: productId ? { productId } : undefined,
@@ -212,6 +213,7 @@ export async function GET(request: NextRequest) {
       kgSold: number;
       totalAmount: number;
       paymentStatus: "PENDING" | "DUE" | "OVERDUE" | "PAID";
+      orderDate: Date;
       createdAt: Date;
     }[] = [];
 
@@ -233,7 +235,7 @@ export async function GET(request: NextRequest) {
         nonVatOrderIds.add(order.id);
       }
 
-      const date = getDateKey(order.createdAt);
+      const date = getDateKey(order.orderDate);
       const daily = dailyMap.get(date) ?? {
         date,
         totalSalesAmount: 0,
@@ -300,6 +302,7 @@ export async function GET(request: NextRequest) {
           kgSold,
           totalAmount: itemSalesAmount,
           paymentStatus: order.paymentStatus,
+          orderDate: order.orderDate,
           createdAt: order.createdAt,
         });
       }
@@ -359,7 +362,7 @@ export async function GET(request: NextRequest) {
           }))
           .sort((a, b) => a.date.localeCompare(b.date)),
         recentProductSales: recentLineItems
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime())
           .slice(0, 10),
       },
     });

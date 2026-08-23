@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type SelectedOrderRow = {
   selectedVisibleId: string;
@@ -20,6 +22,7 @@ type SelectedOrderRow = {
   paymentStatus: "PENDING" | "DUE" | "OVERDUE" | "PAID";
   fulfillmentStatus: "UNFULFILLED" | "FULFILLED";
   deliveryStatus: "NOT_DISPATCHED" | "DISPATCHED" | "DELIVERED";
+  orderDate: string;
   createdAt: string;
   items: {
     id: string;
@@ -181,7 +184,10 @@ export default function SelectedOrdersPage() {
       setMeta(result.meta);
     } catch (error) {
       console.error("Failed to load orders:", error);
-      alert(error instanceof Error ? error.message : "Failed to load orders.");
+      showToast(
+        error instanceof Error ? error.message : "Failed to load orders.",
+        "error"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -364,15 +370,10 @@ export default function SelectedOrdersPage() {
             {meta?.totalCount ?? 0} total order
             {(meta?.totalCount ?? 0) === 1 ? "" : "s"}
           </p>
-          {isLoading && (
-            <p className="text-sm text-neutral-500">Loading...</p>
-          )}
         </div>
 
         {isLoading && orders.length === 0 ? (
-          <div className="p-6 text-sm text-neutral-500">
-            Loading orders...
-          </div>
+          <SkeletonTable columns={6} rows={8} />
         ) : orders.length === 0 ? (
           <div className="p-6 text-sm text-neutral-500">
             No orders found.
@@ -397,7 +398,7 @@ export default function SelectedOrdersPage() {
                   <th className="p-4">Delivery Status</th>
                   <th className="p-4">Order Status</th>
                   <th className="p-4">Items</th>
-                  <th className="p-4">Created</th>
+                  <th className="p-4">Order Date</th>
                 </tr>
               </thead>
 
@@ -509,7 +510,7 @@ export default function SelectedOrdersPage() {
                     </td>
 
                     <td className="p-4 text-neutral-500">
-                      {new Date(order.createdAt).toLocaleDateString("en-LK")}
+                      {new Date(order.orderDate).toLocaleDateString("en-LK")}
                     </td>
                   </tr>
                 ))}

@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         ...(dateFrom || dateTo
           ? [
               {
-                createdAt: {
+                orderDate: {
                   ...(dateFrom ? { gte: dateFrom } : {}),
                   ...(dateTo ? { lte: dateTo } : {}),
                 },
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,
@@ -170,6 +170,7 @@ export async function GET(request: NextRequest) {
         fulfillmentStatus: true,
         deliveryStatus: true,
         orderStatus: true,
+        orderDate: true,
         createdAt: true,
         customer: {
           select: {
@@ -228,13 +229,13 @@ export async function GET(request: NextRequest) {
         nonVatSalesAmount: 0,
         totalSalesAmount: 0,
         orderCount: 0,
-        lastOrderDate: order.createdAt,
+        lastOrderDate: order.orderDate,
       };
 
       current.totalSalesAmount += amount;
       current.orderCount += 1;
-      if (order.createdAt > current.lastOrderDate) {
-        current.lastOrderDate = order.createdAt;
+      if (order.orderDate > current.lastOrderDate) {
+        current.lastOrderDate = order.orderDate;
       }
 
       totalSalesAmount += amount;
@@ -263,7 +264,7 @@ export async function GET(request: NextRequest) {
         pendingOrderIds.add(order.id);
       }
 
-      const date = getDateKey(order.createdAt);
+      const date = getDateKey(order.orderDate);
       const daily = dailyMap.get(date) ?? {
         date,
         totalSalesAmount: 0,
@@ -362,6 +363,7 @@ export async function GET(request: NextRequest) {
           fulfillmentStatus: order.fulfillmentStatus,
           deliveryStatus: order.deliveryStatus,
           orderStatus: order.orderStatus,
+          orderDate: order.orderDate,
           createdAt: order.createdAt,
         })),
       },

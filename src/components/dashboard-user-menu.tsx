@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SkeletonBlock } from "@/components/skeleton";
 
 type CurrentUser = {
   id: string;
@@ -63,9 +64,13 @@ export function DashboardUserMenu() {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div className="min-w-0 text-right">
-        <p className="truncate text-sm font-bold text-black">
-          {isLoading ? "Loading..." : user?.name ?? "User"}
-        </p>
+        {isLoading ? (
+          <SkeletonBlock className="ml-auto h-4 w-28" />
+        ) : (
+          <p className="truncate text-sm font-bold text-black">
+            {user?.name ?? "User"}
+          </p>
+        )}
         <div className="mt-1 flex flex-wrap justify-end gap-1">
           {user?.email && (
             <span className="hidden max-w-[180px] truncate text-xs font-medium text-stone-500 sm:inline">

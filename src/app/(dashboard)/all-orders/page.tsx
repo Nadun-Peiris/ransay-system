@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { SkeletonTable } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type OrderRow = {
   id: string;
@@ -23,6 +25,7 @@ type OrderRow = {
   deliveryStatus: "NOT_DISPATCHED" | "DISPATCHED" | "DELIVERED";
   paymentDueDate: string | null;
   deletedAt: string | null;
+  orderDate: string;
   createdAt: string;
   items: {
     id: string;
@@ -192,8 +195,9 @@ export default function OrdersPage() {
       setMeta(result.meta);
     } catch (error) {
       console.error("Failed to load orders:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to load orders."
+      showToast(
+        error instanceof Error ? error.message : "Failed to load orders.",
+        "error"
       );
     } finally {
       setIsLoading(false);
@@ -365,15 +369,10 @@ export default function OrdersPage() {
             {meta?.totalCount ?? 0} total order
             {(meta?.totalCount ?? 0) === 1 ? "" : "s"}
           </p>
-          {isLoading && (
-            <p className="text-sm font-medium text-stone-500">Loading...</p>
-          )}
         </div>
 
         {isLoading && orders.length === 0 ? (
-          <div className="p-8 text-center text-sm font-medium text-stone-500">
-            Loading orders...
-          </div>
+          <SkeletonTable columns={6} rows={8} />
         ) : orders.length === 0 ? (
           <div className="p-8 text-center text-sm font-medium text-stone-500">
             No orders found.
@@ -393,7 +392,7 @@ export default function OrdersPage() {
                   <th className="p-4 font-medium">Delivery Status</th>
                   <th className="p-4 font-medium">Order Status</th>
                   <th className="p-4 font-medium">Items</th>
-                  <th className="p-4 font-medium">Created</th>
+                  <th className="p-4 font-medium">Order Date</th>
                 </tr>
               </thead>
 
@@ -531,7 +530,7 @@ export default function OrdersPage() {
                     </td>
 
                     <td className="p-4 font-medium text-stone-500">
-                      {new Date(order.createdAt).toLocaleDateString("en-LK", {
+                      {new Date(order.orderDate).toLocaleDateString("en-LK", {
                         year: "numeric",
                         month: "short",
                         day: "numeric",

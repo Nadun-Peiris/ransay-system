@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { BackButton } from "@/components/back-button";
+import { SkeletonBlock, SkeletonCardGrid, SkeletonTable } from "@/components/skeleton";
 
 type StockMovement = {
   id: string;
@@ -157,9 +159,14 @@ export default function ProductDetailPage() {
   if (isLoading) {
     return (
       <main className="p-6">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
-          Loading product...
+        <div className="mb-8">
+          <SkeletonBlock className="h-8 w-56" />
+          <SkeletonBlock className="mt-3 h-4 w-72" />
         </div>
+        <SkeletonCardGrid count={4} />
+        <section className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+          <SkeletonTable columns={5} rows={6} />
+        </section>
       </main>
     );
   }
@@ -169,12 +176,7 @@ export default function ProductDetailPage() {
       <main className="p-6">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-neutral-500">Product not found.</p>
-          <Link
-            href="/products/search"
-            className="mt-4 inline-flex rounded-xl bg-[#FFBF01] px-4 py-2 text-sm font-bold text-black"
-          >
-            Back to products
-          </Link>
+          <BackButton href="/products/search" label="Back to products" className="mt-4" />
         </div>
       </main>
     );
@@ -183,12 +185,7 @@ export default function ProductDetailPage() {
   return (
     <main className="p-6 text-black">
       <div className="mb-6">
-        <Link
-          href="/products/search"
-          className="mb-3 inline-flex text-sm font-semibold text-neutral-500 hover:text-neutral-900"
-        >
-          Back to products
-        </Link>
+        <BackButton href="/products/search" label="Back to products" className="mb-3" />
         <h1 className="text-3xl font-semibold text-neutral-900">
           {product.productName}
         </h1>

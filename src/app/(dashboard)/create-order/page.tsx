@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SkeletonBlock } from "@/components/skeleton";
+import { showToast } from "@/components/toast-provider";
 
 type CustomerType = "VAT" | "NON_VAT";
 type PaymentType = "PAID_NOW" | "CREDIT";
@@ -51,6 +53,10 @@ function formatMoney(value: number) {
   })}`;
 }
 
+function getTodayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function CreateOrderPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,6 +70,7 @@ export default function CreateOrderPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedCustomerAddressId, setSelectedCustomerAddressId] = useState("");
+  const [orderDate, setOrderDate] = useState(getTodayInputValue);
 
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantityBags, setQuantityBags] = useState(1);
@@ -239,17 +246,17 @@ export default function CreateOrderPage() {
     if (!selectedProduct) return;
 
     if (quantityBags <= 0) {
-      alert("Quantity bags must be greater than 0.");
+      showToast("Quantity bags must be greater than 0.", "error");
       return;
     }
 
     if (quantityBags > selectedProduct.availableBags) {
-      alert("Selected bags exceed available stock.");
+      showToast("Selected bags exceed available stock.", "error");
       return;
     }
 
     if (pricePerKg <= 0) {
-      alert("Price per kg must be greater than 0.");
+      showToast("Price per kg must be greater than 0.", "error");
       return;
     }
 
@@ -281,17 +288,17 @@ export default function CreateOrderPage() {
 
   async function handleCreateOrder() {
     if (!selectedCustomer) {
-      alert("Please select a customer.");
+      showToast("Please select a customer.", "error");
       return;
     }
 
     if (items.length === 0) {
-      alert("Please add at least one product.");
+      showToast("Please add at least one product.", "error");
       return;
     }
 
     if (paymentType === "CREDIT" && !paymentDueDate) {
-      alert("Please select a payment due date.");
+      showToast("Please select a payment due date.", "error");
       return;
     }
 
@@ -301,6 +308,7 @@ export default function CreateOrderPage() {
         selectedCustomerAddressId && selectedCustomerAddressId !== "legacy"
           ? selectedCustomerAddressId
           : null,
+      orderDate,
       items: items.map((item) => ({
         productId: item.productId,
         quantityBags: item.quantityBags,
@@ -330,11 +338,14 @@ export default function CreateOrderPage() {
         throw new Error(result.message || "Failed to create order.");
       }
 
-      alert(`Order created successfully: ${result.data.orderId}`);
+      showToast(`Order created successfully: ${result.data.orderId}`, "success");
       router.push("/orders");
     } catch (error) {
       console.error("Create order failed:", error);
-      alert(error instanceof Error ? error.message : "Failed to create order.");
+      showToast(
+        error instanceof Error ? error.message : "Failed to create order.",
+        "error"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -355,6 +366,24 @@ export default function CreateOrderPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
         <div className="space-y-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-5 text-xl font-semibold text-black">Order Details</h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-sm font-medium text-stone-700">
+                  Order Date
+                </span>
+                <input
+                  type="date"
+                  value={orderDate}
+                  onChange={(event) => setOrderDate(event.target.value)}
+                  className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none transition-all focus:border-[#FFBF01] focus:ring-1 focus:ring-[#FFBF01]"
+                />
+              </label>
+            </div>
+          </section>
+
           {/* Products Section */}
           <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
@@ -372,7 +401,7 @@ export default function CreateOrderPage() {
                   className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none transition-all focus:border-[#FFBF01] focus:ring-1 focus:ring-[#FFBF01]"
                 >
                   <option value="">
-                    {isLoadingProducts ? "Loading products..." : "Select product"}
+                    {isLoadingProducts ? "Preparing products" : "Select product"}
                   </option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
@@ -619,9 +648,10 @@ export default function CreateOrderPage() {
                 />
 
                 {isLoadingCustomers && (
-                  <p className="mt-3 text-sm text-stone-500">
-                    Loading customers...
-                  </p>
+                  <div className="mt-3 space-y-2">
+                    <SkeletonBlock className="h-10 w-full" />
+                    <SkeletonBlock className="h-10 w-full" />
+                  </div>
                 )}
 
                 {customerSearch && (

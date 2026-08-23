@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
         ...(dateFrom || dateTo
           ? [
               {
-                createdAt: {
+                orderDate: {
                   ...(dateFrom ? { gte: dateFrom } : {}),
                   ...(dateTo ? { lte: dateTo } : {}),
                 },
@@ -303,7 +303,7 @@ export async function GET(request: NextRequest) {
     const [orders, expenses] = await Promise.all([
       prisma.order.findMany({
         where: salesWhere,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        orderBy: [{ orderDate: "desc" }, { id: "desc" }],
         select: {
           id: true,
           orderId: true,
@@ -316,6 +316,7 @@ export async function GET(request: NextRequest) {
           fulfillmentStatus: true,
           deliveryStatus: true,
           orderStatus: true,
+          orderDate: true,
           createdAt: true,
         },
       }),
@@ -383,6 +384,7 @@ export async function GET(request: NextRequest) {
           orderType: order.orderType,
           totalAmount: order.totalAmount,
           paymentStatus: order.paymentStatus,
+          orderDate: order.orderDate,
           createdAt: order.createdAt,
         })),
         recentExpenses: expenses.slice(0, 10).map((expense) => ({

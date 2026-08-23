@@ -166,6 +166,7 @@ export async function GET(
       deletedByUser: order.deletedByUser,
       deleteReason: order.deleteReason,
 
+      orderDate: order.orderDate,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
 

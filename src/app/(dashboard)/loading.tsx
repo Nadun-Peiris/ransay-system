@@ -18,10 +18,6 @@ export default function DashboardLoading() {
           </div>
         ))}
       </section>
-
-      <p className="mt-6 text-sm font-medium text-stone-500">
-        Loading dashboard...
-      </p>
     </main>
   );
 }
