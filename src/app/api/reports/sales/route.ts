@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireCurrentUser } from "@/lib/auth";
+import { parseDateInput, parseDateToInput } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 import { buildSalesReport } from "@/lib/reports/sales-report";
 
@@ -25,30 +26,11 @@ function getEnumParam<T extends readonly string[]>(
 }
 
 function getDateParam(searchParams: URLSearchParams, key: string) {
-  const value = searchParams.get(key);
-
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date;
+  return parseDateInput(searchParams.get(key));
 }
 
 function getDateToParam(searchParams: URLSearchParams) {
-  const dateTo = getDateParam(searchParams, "dateTo");
-
-  if (!dateTo) {
-    return undefined;
-  }
-
-  dateTo.setHours(23, 59, 59, 999);
-  return dateTo;
+  return parseDateToInput(searchParams.get("dateTo"));
 }
 
 export async function GET(request: NextRequest) {
@@ -115,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,

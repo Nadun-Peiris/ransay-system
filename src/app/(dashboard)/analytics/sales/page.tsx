@@ -4,7 +4,7 @@ export default function SalesPage() {
   return (
     <SalesReportPage
       title="Sales"
-      subtitle="Sales report based on selected-orders-visible orders."
+      subtitle="Selected orders sales report."
       endpoint="/api/reports/sales"
       showCreatedByFilter={false}
     />

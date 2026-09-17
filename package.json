@@ -9,6 +9,7 @@
     "start": "next start",
     "seed:auth": "tsx scripts/seed-auth-users.ts",
     "backfill:inventory-states": "tsx scripts/backfill-inventory-states.ts",
+    "seed:legacy-stock-batches": "tsx scripts/create-legacy-stock-batches.ts",
     "lint": "eslint"
   },
   "dependencies": {

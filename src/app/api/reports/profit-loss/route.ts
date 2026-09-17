@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireCurrentUser } from "@/lib/auth";
+import { parseDateInput, parseDateToInput } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 import {
   buildSalesReport,
@@ -81,30 +82,11 @@ function getEnumParam<T extends readonly string[]>(
 }
 
 function getDateParam(searchParams: URLSearchParams, key: string) {
-  const value = searchParams.get(key);
-
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date;
+  return parseDateInput(searchParams.get(key));
 }
 
 function getDateToParam(searchParams: URLSearchParams) {
-  const dateTo = getDateParam(searchParams, "dateTo");
-
-  if (!dateTo) {
-    return undefined;
-  }
-
-  dateTo.setHours(23, 59, 59, 999);
-  return dateTo;
+  return parseDateToInput(searchParams.get("dateTo"));
 }
 
 function getProfitLossStatus(netProfitAmount: number): ProfitLossStatus {
@@ -303,7 +285,11 @@ export async function GET(request: NextRequest) {
     const [orders, expenses] = await Promise.all([
       prisma.order.findMany({
         where: salesWhere,
-        orderBy: [{ orderDate: "desc" }, { id: "desc" }],
+        orderBy: [
+          { orderDate: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
         select: {
           id: true,
           orderId: true,
@@ -318,6 +304,10 @@ export async function GET(request: NextRequest) {
           orderStatus: true,
           orderDate: true,
           createdAt: true,
+          batchAllocations: {
+            where: { restoredAt: null },
+            select: { totalCostLkr: true },
+          },
         },
       }),
       prisma.expense.findMany({
@@ -341,7 +331,16 @@ export async function GET(request: NextRequest) {
       0
     );
     const grossSalesAmount = salesReport.summary.totalSalesAmount;
-    const netProfitAmount = grossSalesAmount - totalExpenseAmount;
+    const costOfGoodsSold = orders.reduce(
+      (sum, order) =>
+        sum + order.batchAllocations.reduce(
+          (orderSum, allocation) => orderSum + decimalToNumber(allocation.totalCostLkr),
+          0
+        ),
+      0
+    );
+    const grossProfitAmount = grossSalesAmount - costOfGoodsSold;
+    const netProfitAmount = grossProfitAmount - totalExpenseAmount;
     const expenseBreakdown = buildExpenseBreakdown(expenses);
 
     return NextResponse.json({
@@ -350,6 +349,8 @@ export async function GET(request: NextRequest) {
         mode,
         summary: {
           grossSalesAmount,
+          costOfGoodsSold,
+          grossProfitAmount,
           totalExpenseAmount,
           netProfitAmount,
           status: getProfitLossStatus(netProfitAmount),

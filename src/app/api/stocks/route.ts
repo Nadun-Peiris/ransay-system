@@ -20,6 +20,8 @@ function formatProduct(product: {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  stockBatches: { remainingKg: Prisma.Decimal; costPerKgLkr: Prisma.Decimal }[];
+  _count: { stockBatches: number };
 }) {
   const onHandBags = Number(product.stockBags);
   const onHandKg = Number(product.stockKg);
@@ -27,6 +29,14 @@ function formatProduct(product: {
   const committedKg = Number(product.committedKg);
   const unavailableBags = Number(product.unavailableBags);
   const unavailableKg = Number(product.unavailableKg);
+  const batchRemainingKg = product.stockBatches.reduce(
+    (sum, batch) => sum + Number(batch.remainingKg),
+    0
+  );
+  const stockValue = product.stockBatches.reduce(
+    (sum, batch) => sum + Number(batch.remainingKg) * Number(batch.costPerKgLkr),
+    0
+  );
 
   return {
     id: product.id,
@@ -47,6 +57,12 @@ function formatProduct(product: {
     isActive: product.isActive,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
+    availableBatchCount: product.stockBatches.length,
+    averageCostPerKg: batchRemainingKg > 0 ? stockValue / batchRemainingKg : 0,
+    stockValue,
+    expectedProfitIfSold:
+      batchRemainingKg * Number(product.defaultSellingPricePerKg) - stockValue,
+    hasLegacyStock: onHandKg > 0 && product._count.stockBatches === 0,
   };
 }
 
@@ -62,6 +78,9 @@ export async function GET(request: NextRequest) {
       Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
     const offset = (safePage - 1) * safeLimit;
     const q = searchParams.get("q")?.trim();
+    const productId = searchParams.get("productId")?.trim();
+    const batchQ = searchParams.get("batchQ")?.trim();
+    const batchStatus = searchParams.get("batchStatus");
 
     const where: Prisma.ProductWhereInput = {
       isActive: true,
@@ -88,13 +107,54 @@ export async function GET(request: NextRequest) {
         ],
         skip: offset,
         take: safeLimit,
+        include: {
+          stockBatches: {
+            where: { status: "ACTIVE", remainingKg: { gt: 0 } },
+            select: { remainingKg: true, costPerKgLkr: true },
+          },
+          _count: { select: { stockBatches: true } },
+        },
       }),
       prisma.product.count({ where }),
     ]);
 
+    const batches = await prisma.stockBatch.findMany({
+      where: {
+        ...(productId ? { productId } : {}),
+        ...(batchStatus === "ACTIVE" || batchStatus === "DEPLETED" || batchStatus === "REVERSED"
+          ? { status: batchStatus }
+          : {}),
+        ...(batchQ
+          ? {
+              OR: [
+                { batchNo: { contains: batchQ, mode: "insensitive" } },
+                { importShipment: { importNo: { contains: batchQ, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ importDate: "desc" }, { createdAt: "desc" }],
+      take: 200,
+      include: {
+        product: { select: { id: true, productName: true, sku: true } },
+        importShipment: { select: { id: true, importNo: true } },
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: products.map(formatProduct),
+      batches: batches.map((batch) => ({
+        ...batch,
+        initialKg: Number(batch.initialKg),
+        initialBags: Number(batch.initialBags),
+        remainingKg: Number(batch.remainingKg),
+        remainingBags: Number(batch.remainingBags),
+        kgPerBag: Number(batch.kgPerBag),
+        costPerKgLkr: Number(batch.costPerKgLkr),
+        costPerBagLkr: Number(batch.costPerBagLkr),
+        stockValue: Number(batch.remainingKg) * Number(batch.costPerKgLkr),
+      })),
       meta: {
         page: safePage,
         limit: safeLimit,

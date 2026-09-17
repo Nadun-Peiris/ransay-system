@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { SkeletonBlock, SkeletonCardGrid, SkeletonTable } from "@/components/skeleton";
@@ -113,6 +112,17 @@ function formatDate(value: string | null) {
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("en-LK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -632,7 +642,7 @@ export default function SingleOrderPage() {
 
                     {movement.reason && (
                       <p className="mt-3 text-xs text-stone-500 italic">
-                        "{movement.reason}"
+                        &quot;{movement.reason}&quot;
                       </p>
                     )}
                   </div>
@@ -746,7 +756,7 @@ export default function SingleOrderPage() {
 
               <div>
                 <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Created At</p>
-                <p className="mt-1 font-bold text-black">{formatDate(order.createdAt)}</p>
+                <p className="mt-1 font-bold text-black">{formatDateTime(order.createdAt)}</p>
               </div>
 
               <div>

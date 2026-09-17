@@ -66,6 +66,12 @@ type ProfitLossReport = {
   }[];
 };
 
+type ReceivablesReport = {
+  summary: {
+    projectedReceivableAmount: number;
+  };
+};
+
 type ApiResult<T> = {
   success: boolean;
   data: T;
@@ -119,6 +125,8 @@ export default function AnalyticsOverviewPage() {
   );
   const [profitLossReport, setProfitLossReport] =
     useState<ProfitLossReport | null>(null);
+  const [receivablesReport, setReceivablesReport] =
+    useState<ReceivablesReport | null>(null);
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [appliedFilters, setAppliedFilters] =
     useState<FilterState>(emptyFilters);
@@ -142,6 +150,11 @@ export default function AnalyticsOverviewPage() {
 
       const user = meResult.data as CurrentUser;
       const suffix = queryString ? `?${queryString}` : "";
+      const currentDate = new Date();
+      const receivablesParams = new URLSearchParams({
+        month: String(currentDate.getMonth() + 1),
+        year: String(currentDate.getFullYear()),
+      });
       setCurrentUser(user);
 
       const [
@@ -151,19 +164,27 @@ export default function AnalyticsOverviewPage() {
         customerSales,
         expenses,
         profitLoss,
+        receivables,
       ] = await Promise.all([
         user.role === "SUPERADMIN"
           ? fetchReport<SalesReport>(`/api/reports/total-sales${suffix}`)
           : Promise.resolve(null),
         fetchReport<SalesReport>(`/api/reports/sales${suffix}`),
-        fetchReport<ProductSalesReport>(
-          `/api/reports/product-sales${suffix}`
-        ),
-        fetchReport<CustomerSalesReport>(
-          `/api/reports/customer-sales${suffix}`
-        ),
+        user.role === "SUPERADMIN"
+          ? fetchReport<ProductSalesReport>(
+              `/api/reports/product-sales${suffix}`
+            )
+          : Promise.resolve(null),
+        user.role === "SUPERADMIN"
+          ? fetchReport<CustomerSalesReport>(
+              `/api/reports/customer-sales${suffix}`
+            )
+          : Promise.resolve(null),
         fetchReport<ExpensesReport>(`/api/reports/expenses${suffix}`),
         fetchReport<ProfitLossReport>(`/api/reports/profit-loss${suffix}`),
+        fetchReport<ReceivablesReport>(
+          `/api/reports/receivables?${receivablesParams.toString()}`
+        ),
       ]);
 
       setTotalSalesReport(totalSales);
@@ -172,6 +193,7 @@ export default function AnalyticsOverviewPage() {
       setCustomerSalesReport(customerSales);
       setExpensesReport(expenses);
       setProfitLossReport(profitLoss);
+      setReceivablesReport(receivables);
     } catch (error) {
       console.error("Failed to load analytics overview:", error);
     } finally {
@@ -180,7 +202,9 @@ export default function AnalyticsOverviewPage() {
   }, [queryString]);
 
   useEffect(() => {
-    void fetchOverview();
+    queueMicrotask(() => {
+      void fetchOverview();
+    });
   }, [fetchOverview]);
 
   const isSuperadmin = currentUser?.role === "SUPERADMIN";
@@ -193,17 +217,39 @@ export default function AnalyticsOverviewPage() {
             value: formatCurrency(
               totalSalesReport?.summary.totalSalesAmount ?? 0
             ),
-            description: "Full company sales across all eligible orders.",
+            description: "Full sales report across all eligible orders.",
             href: "/analytics/total-sales",
           },
         ]
       : []),
     {
-      title: isSuperadmin ? "Selected Sales" : "Sales",
+      title: "Sales",
       value: formatCurrency(salesReport?.summary.totalSalesAmount ?? 0),
-      description: "Selected-orders-visible sales report.",
+      description: "Selected orders sales report.",
       href: "/analytics/sales",
     },
+    ...(isSuperadmin
+      ? [
+          {
+            title: "Product Sales",
+            value: formatCurrency(
+              productSalesReport?.summary.totalSalesAmount ?? 0
+            ),
+            description:
+              "Full product-wise sales report across all eligible orders.",
+            href: "/analytics/product-sales",
+          },
+          {
+            title: "Customer Sales",
+            value: formatCurrency(
+              customerSalesReport?.summary.totalSalesAmount ?? 0
+            ),
+            description:
+              "Full customer-wise sales report across all eligible orders.",
+            href: "/analytics/customer-sales",
+          },
+        ]
+      : []),
     {
       title: "Expenses",
       value: formatCurrency(expensesReport?.summary.totalExpenseAmount ?? 0),
@@ -211,7 +257,16 @@ export default function AnalyticsOverviewPage() {
       href: "/finance/expenses",
     },
     {
-      title: "Net Profit",
+      title: "Receivables Planning",
+      value: formatCurrency(
+        receivablesReport?.summary.projectedReceivableAmount ?? 0
+      ),
+      description:
+        "Plan selected-order credit collections by due month and threshold.",
+      href: "/finance/receivables",
+    },
+    {
+      title: "Profit & Loss",
       value: formatCurrency(profitLossReport?.summary.netProfitAmount ?? 0),
       description: "Sales minus expenses for the selected period.",
       href: "/finance/profit-loss",
@@ -221,22 +276,6 @@ export default function AnalyticsOverviewPage() {
           : (profitLossReport?.summary.netProfitAmount ?? 0) < 0
             ? "red"
             : "gray",
-    },
-    {
-      title: "Product Sales",
-      value: formatCurrency(
-        productSalesReport?.summary.totalSalesAmount ?? 0
-      ),
-      description: "Product-wise sales and quantity performance.",
-      href: "/analytics/product-sales",
-    },
-    {
-      title: "Customer Sales",
-      value: formatCurrency(
-        customerSalesReport?.summary.totalSalesAmount ?? 0
-      ),
-      description: "Customer-wise sales and order value.",
-      href: "/analytics/customer-sales",
     },
   ];
 

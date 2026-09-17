@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireCurrentUser } from "@/lib/auth";
+import { parseDateInput, parseDateToInput } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -53,30 +54,11 @@ function getEnumParam<T extends readonly string[]>(
 }
 
 function getDateParam(searchParams: URLSearchParams, key: string) {
-  const value = searchParams.get(key);
-
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date;
+  return parseDateInput(searchParams.get(key));
 }
 
 function getDateToParam(searchParams: URLSearchParams) {
-  const dateTo = getDateParam(searchParams, "dateTo");
-
-  if (!dateTo) {
-    return undefined;
-  }
-
-  dateTo.setHours(23, 59, 59, 999);
-  return dateTo;
+  return parseDateToInput(searchParams.get("dateTo"));
 }
 
 function parseOptionalOrderDate(value: string | null | undefined) {
@@ -84,13 +66,7 @@ function parseOptionalOrderDate(value: string | null | undefined) {
     return new Date();
   }
 
-  const orderDate = new Date(value);
-
-  if (Number.isNaN(orderDate.getTime())) {
-    return null;
-  }
-
-  return orderDate;
+  return parseDateInput(value) ?? null;
 }
 
 function getCreditPaymentStatus(dueDate: Date) {
@@ -234,6 +210,9 @@ export async function GET(request: NextRequest) {
       orderBy: [
         {
           orderDate: "desc",
+        },
+        {
+          createdAt: "desc",
         },
         {
           id: "desc",
@@ -431,6 +410,10 @@ export async function POST(request: NextRequest) {
 
       const productIds = body.items.map((item) => item.productId);
 
+      if (new Set(productIds).size !== productIds.length) {
+        throw new Error("Add each product only once per order.");
+      }
+
       const products = await tx.product.findMany({
         where: {
           id: {
@@ -459,25 +442,8 @@ export async function POST(request: NextRequest) {
           throw new Error("Price per kg must be greater than 0.");
         }
 
-        const onHandBags = Number(product.stockBags);
         const kgPerBag = Number(product.kgPerBag);
-        const onHandKg = Number(product.stockKg);
-        const committedBags = Number(product.committedBags);
-        const committedKg = Number(product.committedKg);
-        const unavailableBags = Number(product.unavailableBags);
-        const unavailableKg = Number(product.unavailableKg);
-        const availableBags = onHandBags - committedBags - unavailableBags;
-        const availableKg = onHandKg - committedKg - unavailableKg;
-
         const quantityKg = item.quantityBags * kgPerBag;
-
-        if (item.quantityBags > availableBags) {
-          throw new Error(`${product.productName} does not have enough available bags.`);
-        }
-
-        if (quantityKg > availableKg) {
-          throw new Error(`${product.productName} does not have enough available kg.`);
-        }
 
         const lineTotal = quantityKg * item.pricePerKg;
 
@@ -584,6 +550,63 @@ export async function POST(request: NextRequest) {
       });
 
       for (const item of orderItems) {
+        const createdItem = order.items.find(
+          (orderItem) => orderItem.productId === item.product.id
+        );
+        if (!createdItem) throw new Error("Created order item could not be allocated.");
+
+        const batches = await tx.stockBatch.findMany({
+          where: {
+            productId: item.product.id,
+            status: "ACTIVE",
+            remainingKg: { gt: 0 },
+          },
+          orderBy: [{ importDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+        });
+        const availableKg = batches.reduce(
+          (sum, batch) => sum + Number(batch.remainingKg),
+          0
+        );
+        if (availableKg + 0.0001 < item.data.quantityKg) {
+          throw new Error(
+            `Insufficient stock for ${item.product.productName}. Available ${availableKg.toFixed(2)} KG, requested ${item.data.quantityKg.toFixed(2)} KG.`
+          );
+        }
+
+        let remainingToAllocate = item.data.quantityKg;
+        for (const batch of batches) {
+          if (remainingToAllocate <= 0.0001) break;
+          const batchRemainingKg = Number(batch.remainingKg);
+          const allocatedKg = Math.min(batchRemainingKg, remainingToAllocate);
+          const nextRemainingKg = Math.max(0, batchRemainingKg - allocatedKg);
+          const batchKgPerBag = Number(batch.kgPerBag);
+          const nextRemainingBags = nextRemainingKg / batchKgPerBag;
+          const updated = await tx.stockBatch.updateMany({
+            where: { id: batch.id, status: "ACTIVE", remainingKg: { gte: allocatedKg } },
+            data: {
+              remainingKg: nextRemainingKg,
+              remainingBags: nextRemainingBags,
+              status: nextRemainingKg <= 0.0001 ? "DEPLETED" : "ACTIVE",
+            },
+          });
+          if (updated.count !== 1) {
+            throw new Error("Stock changed while creating the order. Please try again.");
+          }
+          await tx.orderItemBatchAllocation.create({
+            data: {
+              orderId: order.id,
+              orderItemId: createdItem.id,
+              productId: item.product.id,
+              stockBatchId: batch.id,
+              quantityKg: allocatedKg,
+              quantityBags: allocatedKg / item.data.kgPerBag,
+              costPerKgLkr: batch.costPerKgLkr,
+              totalCostLkr: allocatedKg * Number(batch.costPerKgLkr),
+            },
+          });
+          remainingToAllocate -= allocatedKg;
+        }
+
         await tx.product.update({
           where: {
             id: item.product.id,
@@ -603,8 +626,8 @@ export async function POST(request: NextRequest) {
             productId: item.product.id,
             orderId: order.id,
             movementType: "ORDER_COMMIT",
-            quantityBags: item.data.quantityBags,
-            quantityKg: item.data.quantityKg,
+            quantityBags: -item.data.quantityBags,
+            quantityKg: -item.data.quantityKg,
             createdByUserId: currentUser.id,
             reason: `Committed for order ${order.orderId}`,
           },

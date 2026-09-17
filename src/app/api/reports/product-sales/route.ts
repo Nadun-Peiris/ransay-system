@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireCurrentUser } from "@/lib/auth";
+import { parseDateInput, parseDateToInput } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +9,6 @@ export const dynamic = "force-dynamic";
 const ORDER_TYPES = ["VAT", "NON_VAT"] as const;
 const PAYMENT_STATUSES = ["PENDING", "DUE", "OVERDUE", "PAID"] as const;
 const USER_ROLES = ["ADMIN", "SUPERADMIN"] as const;
-
-type ProductSalesMode = "FULL_PRODUCT_SALES" | "SELECTED_PRODUCT_SALES";
 
 type ProductSalesRow = {
   productId: string;
@@ -22,6 +21,7 @@ type ProductSalesRow = {
   quantitySold: number;
   bagsSold: number;
   kgSold: number;
+  totalCostLkr: number;
 };
 
 function decimalToNumber(value: unknown) {
@@ -60,40 +60,25 @@ function getEnumParam<T extends readonly string[]>(
 }
 
 function getDateParam(searchParams: URLSearchParams, key: string) {
-  const value = searchParams.get(key);
-
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date;
+  return parseDateInput(searchParams.get(key));
 }
 
 function getDateToParam(searchParams: URLSearchParams) {
-  const dateTo = getDateParam(searchParams, "dateTo");
-
-  if (!dateTo) {
-    return undefined;
-  }
-
-  dateTo.setHours(23, 59, 59, 999);
-  return dateTo;
+  return parseDateToInput(searchParams.get("dateTo"));
 }
 
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (currentUser.role !== "SUPERADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Forbidden." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
-    const mode: ProductSalesMode =
-      currentUser.role === "SUPERADMIN"
-        ? "FULL_PRODUCT_SALES"
-        : "SELECTED_PRODUCT_SALES";
 
     const orderType = getEnumParam(searchParams, "orderType", ORDER_TYPES);
     const paymentStatus = getEnumParam(
@@ -110,27 +95,12 @@ export async function GET(request: NextRequest) {
     const dateFrom = getDateParam(searchParams, "dateFrom");
     const dateTo = getDateToParam(searchParams);
 
-    const selectedOrdersVisibilityFilter = {
-      OR: [
-        { createdByRole: "ADMIN" },
-        { createdByRole: "SUPERADMIN", orderType: "VAT" },
-        {
-          createdByRole: "SUPERADMIN",
-          orderType: "NON_VAT",
-          isSelected: true,
-        },
-      ],
-    } satisfies Prisma.OrderWhereInput;
-
     const where: Prisma.OrderWhereInput = {
       deletedAt: null,
       orderStatus: {
         notIn: ["DELETED", "CANCELLED"],
       },
       AND: [
-        ...(currentUser.role === "SUPERADMIN"
-          ? []
-          : [selectedOrdersVisibilityFilter]),
         ...(orderType ? [{ orderType }] : []),
         ...(paymentStatus ? [{ paymentStatus }] : []),
         ...(createdByRole ? [{ createdByRole }] : []),
@@ -160,7 +130,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,
@@ -181,6 +151,10 @@ export async function GET(request: NextRequest) {
             quantityKg: true,
             pricePerKg: true,
             lineTotal: true,
+            batchAllocations: {
+              where: { restoredAt: null },
+              select: { totalCostLkr: true },
+            },
           },
         },
       },
@@ -212,6 +186,8 @@ export async function GET(request: NextRequest) {
       bagsSold: number;
       kgSold: number;
       totalAmount: number;
+      totalCostLkr: number;
+      grossProfitLkr: number;
       paymentStatus: "PENDING" | "DUE" | "OVERDUE" | "PAID";
       orderDate: Date;
       createdAt: Date;
@@ -222,6 +198,7 @@ export async function GET(request: NextRequest) {
     let nonVatSalesAmount = 0;
     let totalBagsSold = 0;
     let totalKgSold = 0;
+    let totalCostLkr = 0;
 
     for (const order of orders) {
       if (order.items.length === 0) {
@@ -253,6 +230,10 @@ export async function GET(request: NextRequest) {
         const itemSalesAmount =
           decimalToNumber(item.lineTotal) ||
           kgSold * decimalToNumber(item.pricePerKg);
+        const itemCost = item.batchAllocations.reduce(
+          (sum, allocation) => sum + decimalToNumber(allocation.totalCostLkr),
+          0
+        );
         const current = productMap.get(item.productId) ?? {
           productId: item.productId,
           productName: item.productName,
@@ -264,6 +245,7 @@ export async function GET(request: NextRequest) {
           quantitySold: 0,
           bagsSold: 0,
           kgSold: 0,
+          totalCostLkr: 0,
         };
 
         current.totalSalesAmount += itemSalesAmount;
@@ -271,10 +253,12 @@ export async function GET(request: NextRequest) {
         current.quantitySold += bagsSold;
         current.bagsSold += bagsSold;
         current.kgSold += kgSold;
+        current.totalCostLkr += itemCost;
 
         totalSalesAmount += itemSalesAmount;
         totalBagsSold += bagsSold;
         totalKgSold += kgSold;
+        totalCostLkr += itemCost;
         daily.totalSalesAmount += itemSalesAmount;
         daily.bagsSold += bagsSold;
         daily.kgSold += kgSold;
@@ -301,6 +285,8 @@ export async function GET(request: NextRequest) {
           bagsSold,
           kgSold,
           totalAmount: itemSalesAmount,
+          totalCostLkr: itemCost,
+          grossProfitLkr: itemSalesAmount - itemCost,
           paymentStatus: order.paymentStatus,
           orderDate: order.orderDate,
           createdAt: order.createdAt,
@@ -324,13 +310,19 @@ export async function GET(request: NextRequest) {
         kgSold: product.kgSold,
         averageSellingPrice:
           product.kgSold > 0 ? product.totalSalesAmount / product.kgSold : 0,
+        totalCostLkr: product.totalCostLkr,
+        grossProfitLkr: product.totalSalesAmount - product.totalCostLkr,
+        grossProfitMarginPercentage:
+          product.totalSalesAmount > 0
+            ? ((product.totalSalesAmount - product.totalCostLkr) / product.totalSalesAmount) * 100
+            : 0,
       }))
       .sort((a, b) => b.totalSalesAmount - a.totalSalesAmount);
 
     return NextResponse.json({
       success: true,
       data: {
-        mode,
+        mode: "FULL_PRODUCT_SALES",
         summary: {
           totalSalesAmount,
           vatSalesAmount,
@@ -341,6 +333,10 @@ export async function GET(request: NextRequest) {
           totalKgSold,
           averageSellingPrice:
             totalKgSold > 0 ? totalSalesAmount / totalKgSold : 0,
+          totalCostLkr,
+          grossProfitLkr: totalSalesAmount - totalCostLkr,
+          grossProfitMarginPercentage:
+            totalSalesAmount > 0 ? ((totalSalesAmount - totalCostLkr) / totalSalesAmount) * 100 : 0,
           topSellingProductName: productSales[0]?.productName ?? null,
         },
         productSales,
@@ -362,7 +358,15 @@ export async function GET(request: NextRequest) {
           }))
           .sort((a, b) => a.date.localeCompare(b.date)),
         recentProductSales: recentLineItems
-          .sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime())
+          .sort((a, b) => {
+            const orderDateSort = b.orderDate.getTime() - a.orderDate.getTime();
+
+            if (orderDateSort !== 0) {
+              return orderDateSort;
+            }
+
+            return b.createdAt.getTime() - a.createdAt.getTime();
+          })
           .slice(0, 10),
       },
     });

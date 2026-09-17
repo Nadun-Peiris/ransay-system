@@ -102,7 +102,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/selected-orders", request.url));
   }
 
-  if (pathname === "/analytics/total-sales" && role !== "SUPERADMIN") {
+  const superadminAnalyticsRoutes = [
+    "/analytics/total-sales",
+    "/analytics/product-sales",
+    "/analytics/customer-sales",
+  ];
+
+  if (superadminAnalyticsRoutes.includes(pathname) && role !== "SUPERADMIN") {
     return NextResponse.redirect(new URL("/analytics/sales", request.url));
   }
 

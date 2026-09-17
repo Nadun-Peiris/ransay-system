@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  CircleDollarSign,
   ClipboardList,
   FileInput,
   LayoutDashboard,
@@ -26,10 +27,6 @@ type CurrentUser = {
   email: string | null;
   role: "ADMIN" | "SUPERADMIN";
 };
-
-const baseNavItems = [
-  { label: "Dashboard / Analytics", href: "/analytics", icon: LayoutDashboard },
-];
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/analytics") {
@@ -79,10 +76,6 @@ export function DashboardSidebar() {
   const isSuperadmin = currentUser?.role === "SUPERADMIN";
   const navSections = [
     {
-      label: "Main",
-      items: baseNavItems,
-    },
-    {
       label: "Orders",
       items: [
         { label: "Create Order", href: "/create-order", icon: PlusCircle },
@@ -107,13 +100,18 @@ export function DashboardSidebar() {
       items: [
         { label: "Customers", href: "/customers/search", icon: Users },
         { label: "Products", href: "/products/search", icon: PackageSearch },
+        { label: "Imports", href: "/import", icon: FileInput },
         { label: "Stocks", href: "/stocks", icon: Boxes },
-        { label: "Import", href: "/import", icon: FileInput },
       ],
     },
     {
       label: "Analytics",
       items: [
+        {
+          label: "Analytics Overview",
+          href: "/analytics",
+          icon: LayoutDashboard,
+        },
         ...(isSuperadmin
           ? [
               {
@@ -124,22 +122,31 @@ export function DashboardSidebar() {
             ]
           : []),
         { label: "Sales", href: "/analytics/sales", icon: BarChart3 },
-        {
-          label: "Product Sales",
-          href: "/analytics/product-sales",
-          icon: LineChart,
-        },
-        {
-          label: "Customer Sales",
-          href: "/analytics/customer-sales",
-          icon: BarChart3,
-        },
+        ...(isSuperadmin
+          ? [
+              {
+                label: "Product Sales",
+                href: "/analytics/product-sales",
+                icon: LineChart,
+              },
+              {
+                label: "Customer Sales",
+                href: "/analytics/customer-sales",
+                icon: BarChart3,
+              },
+            ]
+          : []),
       ],
     },
     {
       label: "Finance",
       items: [
         { label: "Expenses", href: "/finance/expenses", icon: ReceiptText },
+        {
+          label: "Receivables Planning",
+          href: "/finance/receivables",
+          icon: CircleDollarSign,
+        },
         {
           label: "Profit & Loss",
           href: "/finance/profit-loss",

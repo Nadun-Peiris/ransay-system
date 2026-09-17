@@ -7,6 +7,17 @@ export function formatCurrency(value: number) {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
+export const formatCurrencyLkr = formatCurrency;
+
+export function formatCurrencyUsd(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
 export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-LK", {
     minimumFractionDigits: 0,
@@ -20,4 +31,16 @@ export function formatDate(value: string | Date) {
     month: "short",
     day: "numeric",
   });
+}
+
+export function formatKg(value: number) {
+  return `${formatNumber(value)} KG`;
+}
+
+export function formatBags(value: number) {
+  return `${formatNumber(value)} bags`;
+}
+
+export function formatPercentage(value: number) {
+  return `${formatNumber(value)}%`;
 }

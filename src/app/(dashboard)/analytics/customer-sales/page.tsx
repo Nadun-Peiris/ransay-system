@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { RankingBarChart } from "@/components/charts/ranking-bar-chart";
@@ -38,6 +39,9 @@ type CustomerSalesReport = {
     totalCustomerCount: number;
     averageOrderValue: number;
     topCustomerName: string | null;
+    totalCostLkr: number;
+    grossProfitLkr: number;
+    grossProfitMarginPercentage: number;
   };
   customerSales: {
     customerId: string;
@@ -53,6 +57,9 @@ type CustomerSalesReport = {
     orderCount: number;
     averageOrderValue: number;
     lastOrderDate: string;
+    totalCostLkr: number;
+    grossProfitLkr: number;
+    grossProfitMarginPercentage: number;
   }[];
   orderTypeBreakdown: {
     vatSalesAmount: number;
@@ -121,13 +128,6 @@ function formatMoney(value: number) {
   })}`;
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join(" ");
-}
-
 function getBadgeClass(type: "green" | "yellow" | "red" | "blue" | "gray") {
   const classes = {
     green: "bg-emerald-100 text-emerald-800",
@@ -177,6 +177,7 @@ function buildReportQuery(filters: FilterState) {
 }
 
 export default function CustomerSalesPage() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [report, setReport] = useState<CustomerSalesReport | null>(null);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -210,20 +211,34 @@ export default function CustomerSalesPage() {
     try {
       setIsLoading(true);
 
-      const [meResponse, reportResponse, customersResponse] =
-        await Promise.all([
-          fetch("/api/auth/me"),
-          fetch(
-            `/api/reports/customer-sales${queryString ? `?${queryString}` : ""}`
-          ),
-          fetch("/api/customers?status=all&limit=100"),
-        ]);
+      const meResponse = await fetch("/api/auth/me");
       const meResult = await meResponse.json();
-      const reportResult = await reportResponse.json();
-      const customersResult = await customersResponse.json();
 
       if (!meResponse.ok || !meResult.success) {
         throw new Error(meResult.message || "Failed to load current user.");
+      }
+
+      const user = meResult.data as CurrentUser;
+
+      if (user.role !== "SUPERADMIN") {
+        router.replace("/analytics/sales");
+        return;
+      }
+
+      setCurrentUser(user);
+
+      const [reportResponse, customersResponse] = await Promise.all([
+        fetch(
+          `/api/reports/customer-sales${queryString ? `?${queryString}` : ""}`
+        ),
+        fetch("/api/customers?status=all&limit=100"),
+      ]);
+      const reportResult = await reportResponse.json();
+      const customersResult = await customersResponse.json();
+
+      if (reportResponse.status === 403) {
+        router.replace("/analytics/sales");
+        return;
       }
 
       if (!reportResponse.ok || !reportResult.success) {
@@ -236,7 +251,6 @@ export default function CustomerSalesPage() {
         throw new Error(customersResult.message || "Failed to load customers.");
       }
 
-      setCurrentUser(meResult.data as CurrentUser);
       setReport(reportResult.data as CustomerSalesReport);
       setCustomers(customersResult.data as CustomerOption[]);
     } catch (error) {
@@ -250,10 +264,12 @@ export default function CustomerSalesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [queryString]);
+  }, [queryString, router]);
 
   useEffect(() => {
-    void fetchReport();
+    queueMicrotask(() => {
+      void fetchReport();
+    });
   }, [fetchReport]);
 
   return (
@@ -263,7 +279,7 @@ export default function CustomerSalesPage() {
           Customer Sales
         </h1>
         <p className="mt-1 text-sm font-medium text-stone-500">
-          Track customer-wise sales, VAT/NON-VAT performance, and order value.
+          Full customer-wise sales report across all eligible orders.
         </p>
       </div>
 
@@ -600,6 +616,9 @@ function CustomerSalesTable({
                 <th className="p-4 font-medium">VAT Sales</th>
                 <th className="p-4 font-medium">NON-VAT Sales</th>
                 <th className="p-4 font-medium">Total Sales</th>
+                <th className="p-4 font-medium">Cost</th>
+                <th className="p-4 font-medium">Gross Profit</th>
+                <th className="p-4 font-medium">Margin</th>
                 <th className="p-4 font-medium">Orders</th>
                 <th className="p-4 font-medium">Avg Order</th>
                 <th className="p-4 font-medium">Last Order</th>
@@ -633,6 +652,9 @@ function CustomerSalesTable({
                   <td className="p-4 text-stone-700">{formatMoney(row.vatSalesAmount)}</td>
                   <td className="p-4 text-stone-700">{formatMoney(row.nonVatSalesAmount)}</td>
                   <td className="p-4 font-bold text-black">{formatMoney(row.totalSalesAmount)}</td>
+                  <td className="p-4 text-stone-700">{formatMoney(row.totalCostLkr)}</td>
+                  <td className="p-4 font-bold text-black">{formatMoney(row.grossProfitLkr)}</td>
+                  <td className="p-4 text-stone-700">{row.grossProfitMarginPercentage.toLocaleString("en-LK", { maximumFractionDigits: 2 })}%</td>
                   <td className="p-4 text-stone-700">{row.orderCount}</td>
                   <td className="p-4 font-bold text-black">{formatMoney(row.averageOrderValue)}</td>
                   <td className="p-4 text-stone-600">

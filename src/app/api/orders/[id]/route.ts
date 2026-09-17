@@ -468,6 +468,10 @@ export async function DELETE(
         where: { id },
         include: {
           items: true,
+          batchAllocations: {
+            where: { restoredAt: null },
+            include: { stockBatch: true },
+          },
         },
       });
 
@@ -481,6 +485,25 @@ export async function DELETE(
 
       if (order.deletedAt || order.orderStatus === "DELETED") {
         throw new RouteError("Order is already deleted.", 400);
+      }
+
+      for (const allocation of order.batchAllocations) {
+        const nextRemainingKg =
+          Number(allocation.stockBatch.remainingKg) + Number(allocation.quantityKg);
+        const nextRemainingBags =
+          nextRemainingKg / Number(allocation.stockBatch.kgPerBag);
+        await tx.stockBatch.update({
+          where: { id: allocation.stockBatchId },
+          data: {
+            remainingKg: nextRemainingKg,
+            remainingBags: nextRemainingBags,
+            status: "ACTIVE",
+          },
+        });
+        await tx.orderItemBatchAllocation.update({
+          where: { id: allocation.id },
+          data: { restoredAt: new Date() },
+        });
       }
 
       for (const item of order.items) {
@@ -506,7 +529,7 @@ export async function DELETE(
             data: {
               productId: item.productId,
               orderId: order.id,
-              movementType: "ORDER_DELETE_REVERSAL",
+              movementType: "ORDER_CANCEL_RESTORE",
               quantityBags: item.quantityBags,
               quantityKg: item.quantityKg,
               createdByUserId: currentUser.id,
@@ -533,9 +556,9 @@ export async function DELETE(
             data: {
               productId: item.productId,
               orderId: order.id,
-              movementType: "ORDER_UNCOMMIT",
-              quantityBags: -item.quantityBags,
-              quantityKg: -item.quantityKg,
+              movementType: "ORDER_CANCEL_RESTORE",
+              quantityBags: item.quantityBags,
+              quantityKg: item.quantityKg,
               createdByUserId: currentUser.id,
               reason:
                 deleteReason || `Uncommitted deleted order ${order.orderId}`,

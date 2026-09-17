@@ -19,6 +19,7 @@ type RecentOrder = {
   fulfillmentStatus: "UNFULFILLED" | "FULFILLED";
   deliveryStatus: "NOT_DISPATCHED" | "DISPATCHED" | "DELIVERED";
   orderStatus: "ACTIVE" | "COMPLETED" | "CANCELLED" | "DELETED";
+  orderDate: string;
   createdAt: string;
 };
 
@@ -355,7 +356,7 @@ export default function CustomerDetailPage() {
                   <th className="p-4">Fulfillment</th>
                   <th className="p-4">Delivery</th>
                   <th className="p-4">Order Status</th>
-                  <th className="p-4">Created</th>
+                  <th className="p-4">Order Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -401,7 +402,7 @@ export default function CustomerDetailPage() {
                       />
                     </td>
                     <td className="p-4 text-neutral-500">
-                      {new Date(order.createdAt).toLocaleDateString("en-LK")}
+                      {new Date(order.orderDate).toLocaleDateString("en-LK")}
                     </td>
                   </tr>
                 ))}

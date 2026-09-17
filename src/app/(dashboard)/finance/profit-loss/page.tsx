@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
@@ -42,6 +42,8 @@ type ProfitLossReport = {
   mode: ReportMode;
   summary: {
     grossSalesAmount: number;
+    costOfGoodsSold: number;
+    grossProfitAmount: number;
     totalExpenseAmount: number;
     netProfitAmount: number;
     status: ProfitLossStatus;
@@ -260,7 +262,8 @@ export default function ProfitLossPage() {
   }, [appliedFilters, effectiveMode]);
 
   useEffect(() => {
-    void fetchReport();
+    const timer = window.setTimeout(() => void fetchReport(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchReport]);
 
   return (
@@ -378,6 +381,14 @@ export default function ProfitLossPage() {
         <SummaryCard
           label="Gross Sales"
           value={formatMoney(report?.summary.grossSalesAmount ?? 0)}
+        />
+        <SummaryCard
+          label="Cost of Goods Sold"
+          value={formatMoney(report?.summary.costOfGoodsSold ?? 0)}
+        />
+        <SummaryCard
+          label="Gross Profit"
+          value={formatMoney(report?.summary.grossProfitAmount ?? 0)}
         />
         <SummaryCard
           label="Total Expenses"

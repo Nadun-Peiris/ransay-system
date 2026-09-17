@@ -1,0 +1,2 @@
+import { ImportForm } from "@/components/import-form";
+export default async function EditImportPage({ params }: { params: Promise<{ id: string }> }) { const { id } = await params; return <main className="p-4 text-neutral-900 md:p-6"><div className="mb-6"><h1 className="text-3xl font-semibold">Edit Import Draft</h1><p className="mt-1 text-sm text-neutral-500">Recalculate and update this draft before confirming stock.</p></div><ImportForm importId={id}/></main>; }

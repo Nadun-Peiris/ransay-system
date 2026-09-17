@@ -1,0 +1,2 @@
+import { ImportForm } from "@/components/import-form";
+export default function NewImportPage() { return <main className="p-4 text-neutral-900 md:p-6"><div className="mb-6"><h1 className="text-3xl font-semibold">Create New Import</h1><p className="mt-1 text-sm text-neutral-500">Record shipment quantities, landed costs, and expected profit. Stock is added only after confirmation.</p></div><ImportForm /></main>; }

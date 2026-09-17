@@ -134,6 +134,9 @@ export async function GET(
           },
           orderBy: [
             {
+              orderDate: "desc",
+            },
+            {
               createdAt: "desc",
             },
             {
@@ -152,6 +155,7 @@ export async function GET(
             fulfillmentStatus: true,
             deliveryStatus: true,
             orderStatus: true,
+            orderDate: true,
             createdAt: true,
           },
         },

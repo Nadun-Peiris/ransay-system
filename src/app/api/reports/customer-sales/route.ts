@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireCurrentUser } from "@/lib/auth";
+import { parseDateInput, parseDateToInput } from "@/lib/date-utils";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +9,6 @@ export const dynamic = "force-dynamic";
 const ORDER_TYPES = ["VAT", "NON_VAT"] as const;
 const PAYMENT_STATUSES = ["PENDING", "DUE", "OVERDUE", "PAID"] as const;
 const USER_ROLES = ["ADMIN", "SUPERADMIN"] as const;
-
-type CustomerSalesMode = "FULL_CUSTOMER_SALES" | "SELECTED_CUSTOMER_SALES";
 
 type CustomerSalesRow = {
   customerId: string;
@@ -24,6 +23,7 @@ type CustomerSalesRow = {
   totalSalesAmount: number;
   orderCount: number;
   lastOrderDate: Date;
+  totalCostLkr: number;
 };
 
 function decimalToNumber(value: unknown) {
@@ -62,40 +62,25 @@ function getEnumParam<T extends readonly string[]>(
 }
 
 function getDateParam(searchParams: URLSearchParams, key: string) {
-  const value = searchParams.get(key);
-
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date;
+  return parseDateInput(searchParams.get(key));
 }
 
 function getDateToParam(searchParams: URLSearchParams) {
-  const dateTo = getDateParam(searchParams, "dateTo");
-
-  if (!dateTo) {
-    return undefined;
-  }
-
-  dateTo.setHours(23, 59, 59, 999);
-  return dateTo;
+  return parseDateToInput(searchParams.get("dateTo"));
 }
 
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (currentUser.role !== "SUPERADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Forbidden." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
-    const mode: CustomerSalesMode =
-      currentUser.role === "SUPERADMIN"
-        ? "FULL_CUSTOMER_SALES"
-        : "SELECTED_CUSTOMER_SALES";
 
     const orderType = getEnumParam(searchParams, "orderType", ORDER_TYPES);
     const paymentStatus = getEnumParam(
@@ -112,27 +97,12 @@ export async function GET(request: NextRequest) {
     const dateFrom = getDateParam(searchParams, "dateFrom");
     const dateTo = getDateToParam(searchParams);
 
-    const selectedOrdersVisibilityFilter = {
-      OR: [
-        { createdByRole: "ADMIN" },
-        { createdByRole: "SUPERADMIN", orderType: "VAT" },
-        {
-          createdByRole: "SUPERADMIN",
-          orderType: "NON_VAT",
-          isSelected: true,
-        },
-      ],
-    } satisfies Prisma.OrderWhereInput;
-
     const where: Prisma.OrderWhereInput = {
       deletedAt: null,
       orderStatus: {
         notIn: ["DELETED", "CANCELLED"],
       },
       AND: [
-        ...(currentUser.role === "SUPERADMIN"
-          ? []
-          : [selectedOrdersVisibilityFilter]),
         ...(orderType ? [{ orderType }] : []),
         ...(paymentStatus ? [{ paymentStatus }] : []),
         ...(createdByRole ? [{ createdByRole }] : []),
@@ -152,7 +122,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: [{ orderDate: "desc" }, { id: "desc" }],
+      orderBy: [{ orderDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         orderId: true,
@@ -181,6 +151,10 @@ export async function GET(request: NextRequest) {
             customerType: true,
             vatNumber: true,
           },
+        },
+        batchAllocations: {
+          where: { restoredAt: null },
+          select: { totalCostLkr: true },
         },
       },
     });
@@ -211,9 +185,14 @@ export async function GET(request: NextRequest) {
     let pendingAmount = 0;
     let dueAmount = 0;
     let overdueAmount = 0;
+    let totalCostLkr = 0;
 
     for (const order of orders) {
       const amount = decimalToNumber(order.totalAmount);
+      const orderCost = order.batchAllocations.reduce(
+        (sum, allocation) => sum + decimalToNumber(allocation.totalCostLkr),
+        0
+      );
       const customer = order.customer;
       const current = customerMap.get(order.customerId) ?? {
         customerId: order.customerId,
@@ -230,15 +209,18 @@ export async function GET(request: NextRequest) {
         totalSalesAmount: 0,
         orderCount: 0,
         lastOrderDate: order.orderDate,
+        totalCostLkr: 0,
       };
 
       current.totalSalesAmount += amount;
+      current.totalCostLkr += orderCost;
       current.orderCount += 1;
       if (order.orderDate > current.lastOrderDate) {
         current.lastOrderDate = order.orderDate;
       }
 
       totalSalesAmount += amount;
+      totalCostLkr += orderCost;
 
       if (order.orderType === "VAT") {
         current.vatSalesAmount += amount;
@@ -306,13 +288,19 @@ export async function GET(request: NextRequest) {
             ? customer.totalSalesAmount / customer.orderCount
             : 0,
         lastOrderDate: customer.lastOrderDate,
+        totalCostLkr: customer.totalCostLkr,
+        grossProfitLkr: customer.totalSalesAmount - customer.totalCostLkr,
+        grossProfitMarginPercentage:
+          customer.totalSalesAmount > 0
+            ? ((customer.totalSalesAmount - customer.totalCostLkr) / customer.totalSalesAmount) * 100
+            : 0,
       }))
       .sort((a, b) => b.totalSalesAmount - a.totalSalesAmount);
 
     return NextResponse.json({
       success: true,
       data: {
-        mode,
+        mode: "FULL_CUSTOMER_SALES",
         summary: {
           totalSalesAmount,
           vatSalesAmount,
@@ -322,6 +310,10 @@ export async function GET(request: NextRequest) {
           averageOrderValue:
             orders.length > 0 ? totalSalesAmount / orders.length : 0,
           topCustomerName: customerSales[0]?.customerName ?? null,
+          totalCostLkr,
+          grossProfitLkr: totalSalesAmount - totalCostLkr,
+          grossProfitMarginPercentage:
+            totalSalesAmount > 0 ? ((totalSalesAmount - totalCostLkr) / totalSalesAmount) * 100 : 0,
         },
         customerSales,
         orderTypeBreakdown: {

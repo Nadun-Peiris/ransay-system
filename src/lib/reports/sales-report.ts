@@ -139,7 +139,21 @@ export function buildSalesReport(
   );
 
   const recentOrders = [...orders]
-    .sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime())
+    .sort((a, b) => {
+      const orderDateSort = b.orderDate.getTime() - a.orderDate.getTime();
+
+      if (orderDateSort !== 0) {
+        return orderDateSort;
+      }
+
+      const createdAtSort = b.createdAt.getTime() - a.createdAt.getTime();
+
+      if (createdAtSort !== 0) {
+        return createdAtSort;
+      }
+
+      return b.id.localeCompare(a.id);
+    })
     .slice(0, 10)
     .map((order) => ({
       id: order.id,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BreakdownPieChart } from "@/components/charts/breakdown-pie-chart";
 import { ChartCard } from "@/components/charts/chart-card";
 import { RankingBarChart } from "@/components/charts/ranking-bar-chart";
@@ -37,6 +38,9 @@ type ProductSalesReport = {
     totalKgSold: number;
     averageSellingPrice: number;
     topSellingProductName: string | null;
+    totalCostLkr: number;
+    grossProfitLkr: number;
+    grossProfitMarginPercentage: number;
   };
   productSales: {
     productId: string;
@@ -50,6 +54,9 @@ type ProductSalesReport = {
     bagsSold: number;
     kgSold: number;
     averageSellingPrice: number;
+    totalCostLkr: number;
+    grossProfitLkr: number;
+    grossProfitMarginPercentage: number;
   }[];
   orderTypeBreakdown: {
     vatSalesAmount: number;
@@ -76,6 +83,8 @@ type ProductSalesReport = {
     bagsSold: number;
     kgSold: number;
     totalAmount: number;
+    totalCostLkr: number;
+    grossProfitLkr: number;
     paymentStatus: PaymentStatus;
     orderDate: string;
     createdAt: string;
@@ -146,6 +155,7 @@ function buildReportQuery(filters: FilterState) {
 }
 
 export default function ProductSalesPage() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [report, setReport] = useState<ProductSalesReport | null>(null);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -179,12 +189,33 @@ export default function ProductSalesPage() {
     try {
       setIsLoading(true);
 
+      const meResponse = await fetch("/api/auth/me");
+      const meResult = await meResponse.json();
+
+      if (!meResponse.ok || !meResult.success) {
+        throw new Error(meResult.message || "Failed to load current user.");
+      }
+
+      const user = meResult.data as CurrentUser;
+
+      if (user.role !== "SUPERADMIN") {
+        router.replace("/analytics/sales");
+        return;
+      }
+
+      setCurrentUser(user);
+
       const [reportResponse, productsResponse] = await Promise.all([
         fetch(`/api/reports/product-sales${queryString ? `?${queryString}` : ""}`),
         fetch("/api/products?limit=100"),
       ]);
       const reportResult = await reportResponse.json();
       const productsResult = await productsResponse.json();
+
+      if (reportResponse.status === 403) {
+        router.replace("/analytics/sales");
+        return;
+      }
 
       if (!reportResponse.ok || !reportResult.success) {
         throw new Error(
@@ -209,35 +240,12 @@ export default function ProductSalesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [queryString]);
+  }, [queryString, router]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function fetchCurrentUser() {
-      try {
-        const response = await fetch("/api/auth/me");
-        const result = await response.json();
-
-        if (isMounted && response.ok && result.success) {
-          setCurrentUser(result.data as CurrentUser);
-        }
-      } catch {
-        if (isMounted) {
-          setCurrentUser(null);
-        }
-      }
-    }
-
-    void fetchCurrentUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    void fetchReport();
+    queueMicrotask(() => {
+      void fetchReport();
+    });
   }, [fetchReport]);
 
   return (
@@ -247,8 +255,7 @@ export default function ProductSalesPage() {
           Product Sales
         </h1>
         <p className="mt-1 text-sm font-medium text-stone-500">
-          Track product-wise sales, VAT/NON-VAT performance, and quantities
-          sold.
+          Full product-wise sales report across all eligible orders.
         </p>
       </div>
 
@@ -545,6 +552,9 @@ function ProductSalesTable({
                 <th className="p-4 font-medium">VAT Sales</th>
                 <th className="p-4 font-medium">NON-VAT Sales</th>
                 <th className="p-4 font-medium">Total Sales</th>
+                <th className="p-4 font-medium">Cost</th>
+                <th className="p-4 font-medium">Gross Profit</th>
+                <th className="p-4 font-medium">Margin</th>
                 <th className="p-4 font-medium">Orders</th>
                 <th className="p-4 font-medium">Bags Sold</th>
                 <th className="p-4 font-medium">KG Sold</th>
@@ -559,6 +569,9 @@ function ProductSalesTable({
                   <td className="p-4 text-stone-700">{formatMoney(row.vatSalesAmount)}</td>
                   <td className="p-4 text-stone-700">{formatMoney(row.nonVatSalesAmount)}</td>
                   <td className="p-4 font-bold text-black">{formatMoney(row.totalSalesAmount)}</td>
+                  <td className="p-4 text-stone-700">{formatMoney(row.totalCostLkr)}</td>
+                  <td className="p-4 font-bold text-black">{formatMoney(row.grossProfitLkr)}</td>
+                  <td className="p-4 text-stone-700">{formatNumber(row.grossProfitMarginPercentage)}%</td>
                   <td className="p-4 text-stone-700">{row.orderCount}</td>
                   <td className="p-4 text-stone-700">{formatNumber(row.bagsSold)}</td>
                   <td className="p-4 text-stone-700">{formatNumber(row.kgSold)}</td>
