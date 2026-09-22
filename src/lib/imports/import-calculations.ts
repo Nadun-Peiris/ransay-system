@@ -2,9 +2,11 @@ export type ImportItemCalculationInput = {
   quantityKg: number;
   kgPerBag: number;
   usdAmountPerKg?: number;
+  amountPaidUsd?: number;
   exchangeRateLkrUsd?: number;
   undiyalPaidLkr?: number;
   dutyTaxLkr?: number;
+  bankProcessingChargesLkr?: number;
   clearingChargesLkr?: number;
   miscellaneousLkr?: number;
   sellingPricePerKgLkr?: number;
@@ -12,7 +14,6 @@ export type ImportItemCalculationInput = {
 
 export type CalculatedImportItem = Required<ImportItemCalculationInput> & {
   quantityBags: number;
-  amountPaidUsd: number;
   usdConvertedLkr: number;
   finalItemCostLkr: number;
   costPerKgLkr: number;
@@ -34,9 +35,14 @@ export function calculateImportItem(
   const quantityKg = finiteNumber(input.quantityKg, "Quantity KG");
   const kgPerBag = finiteNumber(input.kgPerBag, "KG per bag");
   const usdAmountPerKg = finiteNumber(input.usdAmountPerKg, "USD amount per KG");
+  const amountPaidUsd = finiteNumber(input.amountPaidUsd, "Amount paid USD");
   const exchangeRateLkrUsd = finiteNumber(input.exchangeRateLkrUsd, "Exchange rate");
   const undiyalPaidLkr = finiteNumber(input.undiyalPaidLkr, "Undiyal amount");
   const dutyTaxLkr = finiteNumber(input.dutyTaxLkr, "Duty / tax");
+  const bankProcessingChargesLkr = finiteNumber(
+    input.bankProcessingChargesLkr,
+    "Bank processing charges"
+  );
   const clearingChargesLkr = finiteNumber(input.clearingChargesLkr, "Clearing charges");
   const miscellaneousLkr = finiteNumber(input.miscellaneousLkr, "Miscellaneous cost");
   const sellingPricePerKgLkr = finiteNumber(
@@ -49,9 +55,11 @@ export function calculateImportItem(
 
   for (const [label, value] of [
     ["USD amount per KG", usdAmountPerKg],
+    ["Amount paid USD", amountPaidUsd],
     ["Exchange rate", exchangeRateLkrUsd],
     ["Undiyal amount", undiyalPaidLkr],
     ["Duty / tax", dutyTaxLkr],
+    ["Bank processing charges", bankProcessingChargesLkr],
     ["Clearing charges", clearingChargesLkr],
     ["Miscellaneous cost", miscellaneousLkr],
     ["Selling price per KG", sellingPricePerKgLkr],
@@ -60,7 +68,6 @@ export function calculateImportItem(
   }
 
   const quantityBags = quantityKg / kgPerBag;
-  const amountPaidUsd = quantityKg * usdAmountPerKg;
   if (amountPaidUsd > 0 && exchangeRateLkrUsd <= 0) {
     throw new Error("Exchange rate must be greater than 0 when a USD amount is paid.");
   }
@@ -69,6 +76,7 @@ export function calculateImportItem(
     usdConvertedLkr +
     undiyalPaidLkr +
     dutyTaxLkr +
+    bankProcessingChargesLkr +
     clearingChargesLkr +
     miscellaneousLkr;
   const costPerKgLkr = finalItemCostLkr / quantityKg;
@@ -90,6 +98,7 @@ export function calculateImportItem(
     usdConvertedLkr,
     undiyalPaidLkr,
     dutyTaxLkr,
+    bankProcessingChargesLkr,
     clearingChargesLkr,
     miscellaneousLkr,
     finalItemCostLkr,
@@ -111,6 +120,8 @@ export function calculateImportShipmentTotals(items: CalculatedImportItem[]) {
       totalUsdConvertedLkr: sum.totalUsdConvertedLkr + item.usdConvertedLkr,
       totalUndiyalPaidLkr: sum.totalUndiyalPaidLkr + item.undiyalPaidLkr,
       totalDutyTaxLkr: sum.totalDutyTaxLkr + item.dutyTaxLkr,
+      totalBankProcessingChargesLkr:
+        sum.totalBankProcessingChargesLkr + item.bankProcessingChargesLkr,
       totalClearingChargesLkr:
         sum.totalClearingChargesLkr + item.clearingChargesLkr,
       totalMiscellaneousLkr:
@@ -128,6 +139,7 @@ export function calculateImportShipmentTotals(items: CalculatedImportItem[]) {
       totalUsdConvertedLkr: 0,
       totalUndiyalPaidLkr: 0,
       totalDutyTaxLkr: 0,
+      totalBankProcessingChargesLkr: 0,
       totalClearingChargesLkr: 0,
       totalMiscellaneousLkr: 0,
       totalShipmentCostLkr: 0,

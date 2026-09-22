@@ -9,9 +9,11 @@ export type ImportItemInput = {
   quantityKg?: number;
   kgPerBag?: number;
   usdAmountPerKg?: number;
+  amountPaidUsd?: number;
   exchangeRateLkrUsd?: number;
   undiyalPaidLkr?: number;
   dutyTaxLkr?: number;
+  bankProcessingChargesLkr?: number;
   clearingChargesLkr?: number;
   miscellaneousLkr?: number;
   sellingPricePerKgLkr?: number;
@@ -54,9 +56,11 @@ export async function prepareImportItems(
       quantityKg: Number(input.quantityKg),
       kgPerBag: input.kgPerBag == null ? Number(product.kgPerBag) : Number(input.kgPerBag),
       usdAmountPerKg: Number(input.usdAmountPerKg ?? 0),
+      amountPaidUsd: Number(input.amountPaidUsd ?? 0),
       exchangeRateLkrUsd: Number(input.exchangeRateLkrUsd ?? 0),
       undiyalPaidLkr: Number(input.undiyalPaidLkr ?? 0),
       dutyTaxLkr: Number(input.dutyTaxLkr ?? 0),
+      bankProcessingChargesLkr: Number(input.bankProcessingChargesLkr ?? 0),
       clearingChargesLkr: Number(input.clearingChargesLkr ?? 0),
       miscellaneousLkr: Number(input.miscellaneousLkr ?? 0),
       sellingPricePerKgLkr:

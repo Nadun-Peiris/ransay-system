@@ -409,6 +409,7 @@ model ImportShipment {
   totalUsdConvertedLkr     Decimal @default(0) @db.Decimal(14, 2) @map("total_usd_converted_lkr")
   totalUndiyalPaidLkr      Decimal @default(0) @db.Decimal(14, 2) @map("total_undiyal_paid_lkr")
   totalDutyTaxLkr          Decimal @default(0) @db.Decimal(14, 2) @map("total_duty_tax_lkr")
+  totalBankProcessingChargesLkr Decimal @default(0) @db.Decimal(14, 2) @map("total_bank_processing_charges_lkr")
   totalClearingChargesLkr  Decimal @default(0) @db.Decimal(14, 2) @map("total_clearing_charges_lkr")
   totalMiscellaneousLkr    Decimal @default(0) @db.Decimal(14, 2) @map("total_miscellaneous_lkr")
   totalShipmentCostLkr     Decimal @default(0) @db.Decimal(14, 2) @map("total_shipment_cost_lkr")
@@ -456,6 +457,7 @@ model ImportItem {
 
   undiyalPaidLkr     Decimal @default(0) @db.Decimal(14, 2) @map("undiyal_paid_lkr")
   dutyTaxLkr         Decimal @default(0) @db.Decimal(14, 2) @map("duty_tax_lkr")
+  bankProcessingChargesLkr Decimal @default(0) @db.Decimal(14, 2) @map("bank_processing_charges_lkr")
   clearingChargesLkr Decimal @default(0) @db.Decimal(14, 2) @map("clearing_charges_lkr")
   miscellaneousLkr   Decimal @default(0) @db.Decimal(14, 2) @map("miscellaneous_lkr")
 

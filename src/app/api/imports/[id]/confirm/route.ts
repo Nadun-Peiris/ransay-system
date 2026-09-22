@@ -18,6 +18,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (current.stockBatches.length) throw new Error("Stock batches already exist for this import.");
 
       for (const [index, item] of current.items.entries()) {
+        const quantityKg = Number(item.quantityKg);
+        const kgPerBag = Number(item.kgPerBag);
+        if (quantityKg <= 0 || kgPerBag <= 0) {
+          throw new Error("Import item quantities must be greater than 0.");
+        }
+        const costPerKgLkr = Number(item.finalItemCostLkr) / quantityKg;
+        const costPerBagLkr = costPerKgLkr * kgPerBag;
         const batch = await tx.stockBatch.create({
           data: {
             productId: item.productId,
@@ -30,8 +37,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             remainingKg: item.quantityKg,
             remainingBags: item.quantityBags,
             kgPerBag: item.kgPerBag,
-            costPerKgLkr: item.costPerKgLkr,
-            costPerBagLkr: item.costPerBagLkr,
+            costPerKgLkr,
+            costPerBagLkr,
           },
         });
         await tx.product.update({
